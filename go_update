@@ -1,0 +1,51 @@
+#!/bin/bash
+
+go_update() {
+    local pkg="$1"
+    local pkg_name="$(basename "$pkg")"
+    local pkg_dir="$GOPATH/pkg/mod/$(dirname "$pkg")"
+    local caches=($(ls -1 "$pkg_dir" | grep "$pkg_name"))
+
+    #region Validate env
+
+    if [ ! -f "$(pwd)/go.mod" ]; then
+        echo "go_update: no go.mod in $(pwd)"
+        return 1
+    fi
+
+    if [ ! -d "$pkg_dir" ]; then
+        echo "go_update: directory not found: $pkg_dir"
+        return 1
+    fi
+
+    for cache in "${caches[@]}"; do
+        if [ ! -d "$pkg_dir/$cache" ]; then
+            echo "go_update: directory not found: $pkg_dir/$cache"
+            return 1
+        fi
+    done
+
+    for cache in "${caches[@]}"; do
+        x "chmod -R 775 $pkg_dir/$cache" "Make $cache editable"
+    done
+
+    #endregion
+
+    #region Remove cached files
+
+    for cache in "${caches[@]}"; do
+        x "rm -rf $pkg_dir/$cache" "Remove $cache"
+    done
+
+    x "go clean --modcache" "Clean go mod cache"
+
+    #endregion
+
+    #region Re-get package
+
+    x "go get -u $pkg@latest" "Get latest version of $pkg"
+
+    #endregion
+}
+
+go_update "$@"

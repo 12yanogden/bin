@@ -1,0 +1,11 @@
+#!/bin/bash
+
+pass() {
+    local msg="$1"
+    local GREEN="\033[32m"
+    local NC="\033[0m"
+
+    echo -e "[ ${GREEN}PASS${NC} ] $msg"
+}
+
+pass "$@"

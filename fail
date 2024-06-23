@@ -1,0 +1,11 @@
+#!/bin/bash
+
+pass() {
+    local msg="$1"
+    local RED="\033[31m"
+    local NC="\033[0m"
+
+    echo -e "[ ${RED}FAIL${NC} ] $msg"
+}
+
+pass "$@"

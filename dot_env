@@ -1,0 +1,50 @@
+#!/bin/bash
+
+dot_env() {
+    local pattern="$1"
+    local new_val="$2"
+    local pwd="$(pwd)"
+
+    #region Validate env
+
+    if [ ! -f "$pwd/.env" ]; then
+        echo "dot_env: no .env in $pwd"
+        return 1
+    fi
+
+    #endregion
+
+    #region Facade
+
+    local matches="$(cat $pwd/.env | grep "$pattern")"
+    local match_count=$(echo "$matches" | wc -l | xargs)
+
+    if [ $match_count -eq 0 ]; then
+        echo "dot_env: pattern '$pattern' did not match any .env configs"
+        return 1
+
+    elif [ $match_count -gt 1 ]; then
+        echo "dot_env: pattern '$pattern' matched $match_count configs:"
+        echo "$matches"
+        return 1
+
+    elif [ $match_count -eq 1 ]; then
+        local key_value=(${matches//=/ })
+        local key="${key_value[0]}"
+        local value="${key_value[1]}"
+
+        # Read
+        if [ -z "$new_val" ]; then
+            echo "$value"
+
+        # Write
+        else
+            x "sed -i.bak 's%$matches%$key=$new_val%' $pwd/.env" "Set $key to $new_val"
+            rm -f $pwd/.env.bak
+        fi
+    fi
+
+    #endregion
+}
+
+dot_env "$@"

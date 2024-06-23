@@ -1,0 +1,34 @@
+#!/bin/bash
+
+deploy() {
+    local project_path="$1"
+    local DEPLOY_PATH="/usr/local/bin"
+
+    if [ -z "$project_path" ]; then
+        project_path="$(pwd)"
+    fi
+
+    local build="$(go_build "$project_path")"
+
+    echo "$build"
+
+    if [ "$(echo "$build" | grep -c "FAILED")" -eq 0 ]; then
+        build_dir="$project_path/build"
+        bin_files="$(ls -1 "$build_dir")"
+
+        for bin_file in ${bin_files[@]}; do
+            cmd_name="$bin_file"
+            msg="Deploy $cmd_name"
+
+            cp "$build_dir/$bin_file" "$DEPLOY_PATH"
+
+            if [ -f "$DEPLOY_PATH/$cmd_name" ]; then
+                echo "[ PASS ] $msg"
+            else
+                echo "[ FAILED ] $msg"
+            fi
+        done
+    fi
+}
+
+deploy $@

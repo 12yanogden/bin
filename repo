@@ -1,0 +1,118 @@
+#!/bin/bash
+
+menu() {
+    local options=($@)
+    local i=0
+    local selection=""
+
+    for option in ${options[@]}; do
+        echo "$i) $option"
+        i=$(($i + 1))
+    done
+
+    while [[ $(echo "$selection" | egrep -c '^[0-9]+$') -eq 0 || $selection -ge ${#options[@]} || $selection -lt 0 ]]; do
+        if [ ! -z "$selection" ]; then
+            echo "invalid response: $selection"
+        fi
+        
+        read -p "Selection: " selection
+    done
+
+    export MENU_SELECTION="${options[$selection]}"
+}
+
+repo() {
+  local args=("$@")
+  local name=''
+  local dir_name=''
+  local description=''
+  local access_level=''
+  local pwd="$(pwd)"
+
+  #region Process input
+
+  for (( i=0; i<${#args[@]}; i++ )); do
+    case "${args[i]}" in
+      -o|--dir_name)
+        i=$(($i + 1))
+        dir_name="${args[i]}"
+      ;;
+      -d|--description)
+        i=$(($i + 1))
+        description="${args[i]}"
+      ;;
+      *)
+        name="${args[i]}"
+      ;;
+    esac
+  done
+
+  #endregion
+
+  #region Validate and reconcile
+
+  # Require repository name
+  if [ -z "$name" ]; then
+    echo "repo: a repository name is required"
+    return 1
+  elif [ "$(echo $name | grep -c ' ' )" -eq 1 ]; then
+    echo "repo: no space allowed in repository name: '$name'"
+    return 1
+  elif [ "$(echo $name | grep -c '/' )" -eq 1 ]; then
+    echo "repo: '/' is not supported in repository name: '$name'"
+    return 1
+  fi
+
+  # If directory name is not given, set to repository name
+  if [ -z "$dir_name" ]; then
+    dir_name="$name"
+  fi
+
+  #endregion
+
+  #region Prompt for additional input
+
+  # Get access level
+  echo "Will the repository be public or private?"
+  menu "public" "private"
+  access_level="$MENU_SELECTION"
+
+  # Get description
+  if [ -z "$description" ]; then
+    read -p "Enter a description for $name: " "description"
+  fi
+
+  #endregion
+
+  #region Validate and reconcile
+
+  # Build the access level flag
+  access_level="--$access_level"
+
+  # Build the description flag
+  if [ ! -z "$description" ]; then
+    description="-d \"$description\""
+  fi
+
+  # Install Github CLI if not installed
+  if [ -z "$(which gh)" ]; then
+    x "brew install gh" "Install Github CLI"
+    gh auth login
+  fi
+
+  #endregion
+
+  #region Create the repository
+
+  x "gh repo create $name $access_level $description --add-readme --clone" "Create the $name repo"
+
+  if [ "$name" != "$dir_name" ]; then
+    x "mv $name $dir_name" "Apply custom local directory name: $dir_name"
+  fi
+
+  x "code $dir_name" "Open new repo in vscode"
+
+  #endregion
+}
+
+repo "$@"

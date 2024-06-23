@@ -1,0 +1,32 @@
+#!/bin/bash
+
+build() {
+    local project_path="$1"
+
+    if [ -z "$project_path" ]; then
+        project_path="$(pwd)"
+    fi
+
+    local cmd_dir="$project_path/cmd"
+
+    if [ ! -d "$cmd_dir" ]; then
+        echo "$cmd_dir does not exist"
+    fi
+
+    local main_files=($(grep -Rl "func main" "$cmd_dir"))
+
+    for main_file in ${main_files[@]}; do
+        cmd_name="$(basename "$main_file" ".go")"
+        msg="Build $cmd_name"
+
+        go build -o "$project_path/build/$cmd_name" "$main_file"
+
+        if [ -f "$project_path/build/$cmd_name" ]; then
+            echo "[ PASS ] $msg"
+        else
+            echo "[ FAILED ] $msg"
+        fi
+    done
+}
+
+build $@

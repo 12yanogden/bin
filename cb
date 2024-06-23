@@ -1,0 +1,61 @@
+#!/bin/bash
+
+branch_menu() {
+    local options=($@)
+    local i=0
+    local selection=""
+
+    for option in ${options[@]}; do
+        echo "$i) $option"
+        i=$(($i + 1))
+    done
+
+    while [[ $(echo "$selection" | egrep -c '^[0-9]+$') -eq 0 || $selection -ge ${#options[@]} || $selection -lt 0 ]]; do
+        if [ ! -z "$selection" ]; then
+            echo "invalid response: $selection"
+        fi
+        
+        read -p "Selection: " selection
+    done
+
+    export BRANCH_SELECTION="${options[$selection]}"
+}
+
+append() {
+    echo -e "$1\n$2"
+}
+
+cb() {
+    local branch_pattern="$1"
+    local branch=""
+
+    if [ -z "$branch_pattern" ]; then
+        echo "out: branch pattern required"
+        return 1
+    fi
+
+    local branches=($(bs "$branch_pattern"))
+
+    if [ ${#branches[@]} -eq 0 ]; then
+        x "git fetch"
+        branches=($(bs "$branch_pattern"))
+
+        if [ ${#branches[@]} -eq 0 ]; then
+            fail "no branches match the pattern: '$branch_pattern'"
+
+            return 1
+        fi
+    fi
+
+    if [ ${#branches[@]} -gt 1 ]; then
+        echo "Multiple branches match the pattern: '$branch_pattern'"
+        branch_menu "${branches[@]}"
+        branch="$BRANCH_SELECTION"
+    else
+        branch="${branches[0]}"
+    fi
+
+    x "git checkout '$branch'"
+}
+
+cb "$@"
