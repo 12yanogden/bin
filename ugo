@@ -1,0 +1,37 @@
+#!/bin/bash
+
+update() {
+    local local_version=$(go version | cut -d' ' -f 3)
+    local latest_version="$(wget -qO- "https://golang.org/VERSION?m=text" | egrep '^go[0-9]+\.[0-9]+\.[0-9]+$')"
+    local os="darwin"
+    local architecture="arm64"
+    local release_file="$latest_version.$os-$architecture.tar.gz"
+    local downloads_dir="${HOME}/Downloads"
+    local pwd="$(pwd)"
+    local go_dir="/usr/local/go"
+
+    #region Validate env
+
+    if [ "$local_version" = "$latest_version" ]; then
+        pass "The local Go version $local_version is up to date."
+        return
+    fi
+
+    #endregion
+
+    #region Install latest go version
+
+    # Sudo is here to enable subsequent sudo commands
+    sudo x "curl -L -o '$downloads_dir/$release_file' 'https://go.dev/dl/$release_file'"    "Download compressed $latest_version" 
+    x "sudo rm -rf '$go_dir'"                                                               "Unistall $local_version"
+    x "sudo tar -C '$(dirname $go_dir)' -xzf '$downloads_dir/$release_file'"                "Install $latest_version"
+    x "rm -rf '$downloads_dir/$release_file'"                                               "Delete compressed $latest_version"
+
+    echo -e "\nGo version is $(go version|cut -d' ' -f 3)"
+
+    #endregion
+
+    cd "$pwd"
+}
+
+update "$@"
