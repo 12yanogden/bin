@@ -1,51 +1,63 @@
 #!/bin/bash
 
 go_update() {
-    local pkg="$1"
-    local pkg_name="$(basename "$pkg")"
-    local pkg_dir="$GOPATH/pkg/mod/$(dirname "$pkg")"
-    local caches=($(ls -1 "$pkg_dir" | grep "$pkg_name"))
+    local input="$1"
+    local url=($(echo "$input" | sed 's+/+ +g'))
+    local domain="${url[0]}"
+    local vendor="${url[1]}"
+    local module="${url[2]}"
+    local pkg="${url[${#url[@]}-1]}"
+    local vendor_dir="$GOPATH/pkg/mod/$domain/$(echo $vendor | awk '{gsub(/[A-Z]/,"!&");print tolower($0)}')"
+    local module_dir="$vendor_dir/$(ls -1 "$vendor_dir" | grep "^$module@")"
+    local pwd="$(pwd)"
+    local mod_file="$pwd/go.mod"
+    local sum_file="$pwd/go.sum"
 
-    #region Validate env
+    # #region Validate env
 
-    if [ ! -f "$(pwd)/go.mod" ]; then
+    if [ -z "$input" ]; then
+        echo "go_update: no url provided"
+        return 1
+    fi
+
+    if [ ! -f "$mod_file" ]; then
         echo "go_update: no go.mod in $(pwd)"
         return 1
     fi
 
-    if [ ! -d "$pkg_dir" ]; then
-        echo "go_update: directory not found: $pkg_dir"
+    if [ "$(echo "$module_dir" | grep -c " ")" -gt 0 ]; then
+        echo "go_update: more than one cache for $module found"
+        echo "see $vendor_dir"
         return 1
     fi
 
-    for cache in "${caches[@]}"; do
-        if [ ! -d "$pkg_dir/$cache" ]; then
-            echo "go_update: directory not found: $pkg_dir/$cache"
-            return 1
-        fi
-    done
+    # #endregion
 
-    for cache in "${caches[@]}"; do
-        x "chmod -R 775 $pkg_dir/$cache" "Make $cache editable"
-    done
+    #region Remove module references
+
+    if [ -f "$sum_file" ]; then
+        x "rm -f '$sum_file'" "Remove go.sum"
+    fi
+
+    x "echo '$(grep -v "$domain/$vendor/$module" "$mod_file")' > '$mod_file'" "Remove go.mod references"
 
     #endregion
 
-    #region Remove cached files
+    # #region Remove cached files
 
-    for cache in "${caches[@]}"; do
-        x "rm -rf $pkg_dir/$cache" "Remove $cache"
-    done
+    if [ -d "$module_dir" ]; then
+        x "sudo rm -rf $module_dir" "Remove $module module cache"
+    fi
 
     x "go clean --modcache" "Clean go mod cache"
 
-    #endregion
+    # #endregion
 
-    #region Re-get package
+    # #region Re-get package
 
-    x "go get -u $pkg@latest" "Get latest version of $pkg"
+    x "go get -u $input@latest" "Get latest version of $module"
 
-    #endregion
+    # #endregion
 }
 
 go_update "$@"
