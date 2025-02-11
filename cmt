@@ -20,16 +20,6 @@ cmt() {
     fi
 
     x "git add ." "Stage all changes for commit"
-
-    if [ ! -z "$ns" ]; then
-        x "vendor/bin/phpcs 2>&1" "Run code sniffer"
-
-        if [ $? -eq 0 ]; then
-            echo -e "\nFix code sniffer issues and rerun gitcom"
-            return 1
-        fi
-    fi
-
     x "git commit -m '$msg'" "Commit all staged changes"
     x "git push" "Push all committed changes"
 }
