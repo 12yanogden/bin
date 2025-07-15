@@ -1,0 +1,150 @@
+#!/bin/bash
+
+validate_package_symlinks() {
+    local packages=("$@")
+    local apps_dir="$HOME/Projects/Apps"
+    
+    for package in "${packages[@]}"; do
+        local package_dir="$apps_dir/$package"
+
+        if [ ! -d "$package_dir" ]; then
+            echo "Package directory does not exist: $package_dir"
+            exit 1
+        fi
+    done
+}
+
+# open_packages() {
+#     local packages=("$@")
+#     local apps_dir="$HOME/Projects/Apps"
+    
+#     for package in "${packages[@]}"; do
+#         local package_dir="$apps_dir/$package"
+        
+#         osascript -e "
+#             tell application \"Warp\"
+#                 activate
+#             end tell
+#             delay 0.5
+#             tell application \"System Events\"
+#                 tell process \"Warp\"
+#                     keystroke \"d\" using {command down, shift down}
+#                     delay 0.5
+#                     keystroke \"cd '$package_dir'\"
+#                     key code 36
+#                 end tell
+#             end tell
+#         "
+        
+#         # Small delay between splits
+#         sleep 1
+#     done
+# }
+
+open_tabs_for_packages() {
+    local env_index="$1"
+    shift
+    local packages=("$@")
+    local apps_dir="$HOME/Projects/Apps"
+    
+    for package in "${packages[@]}"; do
+        local package_dir="$apps_dir/$package"
+        
+        # Open a new tab in Warp with the package directory
+        x "open 'warp://action/new_tab?path=$package_dir'" "Open tab for $package"
+
+        # Wait briefly to ensure the tab is open, then open a new pane (split to the side)
+        sleep 1
+        osascript -e '
+            tell application "Warp"
+                activate
+            end tell
+            delay 0.5
+            tell application "System Events"
+                tell process "Warp"
+                    key code 49 using {control down} -- ctrl + space
+                end tell
+            end tell
+        '
+        # Wait briefly, then focus input (cmd + i), then type exec_php8 and press Enter in the new pane
+        sleep 0.5
+        osascript -e '
+            tell application "Warp"
+                activate
+            end tell
+            delay 0.2
+            tell application "System Events"
+                tell process "Warp"
+                    keystroke "i" using {command down}
+                    delay 0.1
+                    keystroke "exec_php8"
+                    delay 5
+                    key code 36
+                    delay 0.1
+                    keystroke "cd '$package$env_index'"
+                    key code 36
+                    keystroke "clear"
+                    key code 36
+                end tell
+            end tell
+        '
+        # Switch to the first pane (cmd+option+left) before renaming the tab
+        sleep 0.2
+        osascript -e "
+            tell application \"Warp\"
+                activate
+            end tell
+            delay 0.1
+            tell application \"System Events\"
+                tell process \"Warp\"
+                    key code 123 using {command down, option down} -- cmd+option+left arrow
+                    delay 0.1
+                    keystroke \"l\" using {command down, shift down}
+                    delay 0.1
+                end tell
+            end tell
+        "
+    done
+}
+
+get_vendor_packages() {
+    local env_index="$1"
+    local apps_dir="$HOME/Projects/Apps"
+    local env_dir="$apps_dir/ssp-app$env_index"
+    local env_vendor="$env_dir/vendor"
+
+    if [ ! -d "$env_dir" ]; then
+        echo "invalid environment index: $env_index"
+        exit 1
+    elif [ ! -d "$env_vendor" ]; then
+        echo "no vendor directory in environment: $env_dir"
+        exit 1
+    elif [ $(which warp-cli | grep -c "not found") -eq 1 ]; then
+        echo "warp-cli is not installed"
+        exit 1
+    fi
+
+    echo $(ls -1 $env_vendor/evolution | sed "s/$/$env_index/")
+}
+
+warp_to_all() {
+    local env_index="$1"
+    local dependency_tree_packages=($(cat "$(dirname ${BASH_SOURCE[0]})/resources/dependency_tree.txt"))
+    local vendor_packages=($(get_vendor_packages "$env_index"))
+    local vendor_packages_not_in_tree=($(arr_subtract vendor_packages[@] dependency_tree_packages[@]))
+
+    if [ ${#vendor_packages_not_in_tree[@]} -gt 0 ]; then
+        echo "Must add these packages to the dependency tree: ${vendor_packages_not_in_tree[@]}"
+        exit 1
+    fi
+
+    # Validate symbolic links exist for each package
+    validate_package_symlinks "${dependency_tree_packages[@]}"
+
+    # Open a new warp tab for each package in Warp
+    open_tabs_for_packages "$env_index" "${dependency_tree_packages[@]}"
+}
+
+
+
+warp_to_all "$@"

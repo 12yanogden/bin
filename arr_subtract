@@ -1,0 +1,32 @@
+#!/bin/bash
+
+#  arr_subtract
+# 
+#  Returns the subtraction of two arrays (elements in the first array not in the second).
+#
+#  Usage:
+#    arr1=("a" "b" "c" "d")
+#    arr2=("b" "c" "e")
+#    arr_subtract arr1[@] arr2[@]
+arr_subtract() {
+    local arr1=("${!1}")
+    local arr2=("${!2}")
+    local result=()
+
+    for i in "${arr1[@]}"; do
+        local found=0
+        for j in "${arr2[@]}"; do
+            if [[ "$i" == "$j" ]]; then
+                found=1
+                break
+            fi
+        done
+        if [[ $found -eq 0 ]]; then
+            result+=("$i")
+        fi
+    done
+
+    echo "${result[@]}"
+}
+
+arr_subtract "$@"

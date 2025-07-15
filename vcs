@@ -1,0 +1,89 @@
+#!/bin/bash
+
+sniff_with_msg() {
+    local msg="$1"
+    x "vendor/bin/phpcs" "$msg" --verbose | grep -v "Deprecated" | grep -v "^[ \t]*$"
+}
+
+sniff_repo() {
+    local repo_path="$1"
+    local repo_name="$(basename "$repo_path")"
+
+    echo "$repo_name"
+    cd "$repo_path"
+
+    if [ ! -f "vendor/bin/phpcs" ]; then
+        x "composer install" "Install phpcs"
+
+        if [ ! -f "vendor/bin/phpcs" ]; then
+            fail "Failed to install phpcs in $repo_name"
+            exit 1
+        fi
+    fi
+
+    sniff_with_msg "Run code sniffer"
+
+    if [ $? -ne 0 ]; then
+        x "vendor/bin/phpcbf" "Run code beautifier" --verbose
+
+        if [ $? -ne 0 ]; then
+            fail "Code is too ugly for beautification."
+            exit 1
+        fi
+        
+        sniff_with_msg "Re-run code sniffer after beautification"
+
+        if [ $? -ne 0 ]; then
+            fail "Code is still not compliant after beautification."
+            exit 1
+        fi
+    fi
+
+    if [ $(is_dirty) -eq 1 ]; then
+        read -p "Do you want to commit the changes? (y/n): " commit_choice
+
+        while [ "$commit_choice" != "y" ] && [ "$commit_choice" != "n" ]; do
+            echo "Invalid choice. Please enter 'y' or 'n'."
+            read -p "Do you want to commit the changes? (y/n): " commit_choice
+        done
+
+        if [ "$commit_choice" = "y" ]; then
+            cmt "phpcs"
+        fi
+    fi
+}
+
+vcs() {
+    local branch_pattern="$1"
+    local pwd=$(pwd)
+    local evolution_dir="$pwd/vendor/evolution"
+    local pkgs_on_branch=($(pkgs_on_branch "$branch_pattern"))
+    local env_is_on_branch=$(is_on_branch "$branch_pattern")
+    
+    #region Validate
+
+    if [ ! -d "$evolution_dir" ]; then
+        echo "No vendor directory found in current directory: $pwd"
+        exit 1
+    fi
+
+    for pkg in "${pkgs_in_scope[@]}"; do
+        if [ ! -d "$evolution_dir/$pkg" ]; then
+            echo "pkg $pkg not found in vendor directory: $evolution_dir"
+            exit 1
+        fi
+    done
+
+    #endregion
+    
+    for pkg in "${pkgs_on_branch[@]}"; do
+        sniff_repo "$evolution_dir/$pkg"
+        echo ""
+    done
+
+    if [ $env_is_on_branch -eq 1 ]; then
+        sniff_repo "$pwd"
+    fi
+}
+
+vcs "$@"

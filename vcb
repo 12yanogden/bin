@@ -1,0 +1,115 @@
+#!/bin/bash
+
+validate_branch_patterns() {
+    local branch_patterns=("$@")
+    
+    for pattern in "${branch_patterns[@]}"; do
+        if [ -z "$pattern" ]; then
+            echo "Empty branch pattern provided"
+            exit 1
+        fi
+    done
+}
+
+branch_menu() {
+    local options=($@)
+    local i=0
+    local selection=""
+
+    for option in ${options[@]}; do
+        echo "$i) $option"
+        i=$(($i + 1))
+    done
+
+    while [[ $(echo "$selection" | egrep -c '^[0-9]+$') -eq 0 || $selection -ge ${#options[@]} || $selection -lt 0 ]]; do
+        if [ ! -z "$selection" ]; then
+            echo "invalid response: $selection"
+        fi
+        
+        read -p "Selection: " selection
+    done
+
+    export BRANCH_SELECTION="${options[$selection]}"
+}
+
+checkout_branches_for_repo() {
+    local pkg_path="$1"
+    shift
+    local branch_patterns=("$@")
+    
+    echo "$(basename "$pkg_path")"
+    cd "$pkg_path"
+
+    for pattern in "${branch_patterns[@]}"; do
+        branch_search="$(bs "$pattern")"
+        branch="$branch_search"
+
+        if [ -z "$branch_search" ]; then
+            continue
+        elif [ $(echo $branch_search | grep -c " ") -gt 0 ]; then
+            bs_array=($branch_search)
+            echo "Multiple branches found for pattern '$pattern':"
+            branch_menu "${branch_search[@]}"
+            branch="$BRANCH_SELECTION"
+        fi
+
+        x "git checkout '$branch'" "Checkout '$branch'"
+        x "git pull" "Pull latest"
+    done
+}
+
+get_pkgs_in_scope() {
+    local first_pkg_in_scope="$1"
+    local dependency_tree_pkgs=($(cat "$(dirname ${BASH_SOURCE[0]})/resources/dependency_tree.txt"))
+    local pkgs_in_scope=()
+    local is_at_or_after_first_pkg=false
+
+    for dependency_tree_pkg in "${dependency_tree_pkgs[@]}"; do
+        if [ "$dependency_tree_pkg" == "$first_pkg_in_scope" ]; then
+            is_at_or_after_first_pkg=true
+        fi
+
+        if $is_at_or_after_first_pkg; then
+            pkgs_in_scope+=("$dependency_tree_pkg")
+        fi
+    done
+
+    echo "${pkgs_in_scope[@]}"
+}
+
+vcb() {
+    local branch_patterns=("$@")
+    local pwd=$(pwd)
+    local evolution_dir="$pwd/vendor/evolution"
+    local pkgs_in_scope=($(get_pkgs_in_scope "core"))
+    
+    #region Validate
+
+    if [ ${#branch_patterns[@]} -eq 0 ]; then
+        echo "No branch patterns provided. Usage: vcb <branch_pattern1> [branch_pattern2] ..."
+        exit 1
+    fi
+
+    if [ ! -d "$evolution_dir" ]; then
+        echo "No vendor directory found in current directory: $pwd"
+        exit 1
+    fi
+
+    for pkg in "${pkgs_in_scope[@]}"; do
+        if [ ! -d "$evolution_dir/$pkg" ]; then
+            echo "pkg $pkg not found in vendor directory: $evolution_dir"
+            exit 1
+        fi
+    done
+
+    #endregion
+    
+    for pkg in "${pkgs_in_scope[@]}"; do
+        checkout_branches_for_repo "$evolution_dir/$pkg" "${branch_patterns[@]}"
+        echo ""
+    done
+
+    checkout_branches_for_repo "$pwd" "${branch_patterns[@]}"
+}
+
+vcb "$@"

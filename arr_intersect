@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# arr_intersect
+#
+# Returns the intersection of two arrays.
+#
+# Usage:
+#   arr1=("a" "b" "c" "d")
+#   arr2=("b" "c" "e")
+#   arr_intersect arr1[@] arr2[@]
+arr_intersect() {
+    local arr1=("${!1}")
+    local arr2=("${!2}")
+    local result=()
+
+    for i in "${arr1[@]}"; do
+        for j in "${arr2[@]}"; do
+            if [[ "$i" == "$j" ]]; then
+                result+=("$i")
+                break
+            fi
+        done
+    done
+
+    echo "${result[@]}"
+}
+
+arr_intersect "$@"

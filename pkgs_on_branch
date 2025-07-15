@@ -1,0 +1,46 @@
+#!/bin/bash
+
+pkgs_on_branch() {
+    local branch_pattern="$1"
+    local dependency_tree_pkgs=($(cat "$(dirname ${BASH_SOURCE[0]})/resources/dependency_tree.txt"))
+    local pwd=$(pwd)
+    local evolution_dir="$pwd/vendor/evolution"
+    local matching_pkgs=()
+    
+    #region Validate
+    
+    if [ -z "$branch_pattern" ]; then
+        echo "No branch pattern provided. Usage: pob <branch_pattern>"
+        exit 1
+    fi
+    
+    if [ ! -d "$evolution_dir" ]; then
+        echo "No vendor directory found in current directory: $pwd"
+        exit 1
+    fi
+    
+    for pkg in "${dependency_tree_pkgs[@]}"; do
+        if [ ! -d "$evolution_dir/$pkg" ]; then
+            echo "pkg $pkg not found in vendor directory: $evolution_dir" >&2
+            exit 1
+        fi
+    done
+    
+    #endregion
+    
+    # Check each pkg for matching branch
+    for pkg in "${dependency_tree_pkgs[@]}"; do
+        local pkg_path="$evolution_dir/$pkg"
+
+        cd "$pkg_path"
+    
+        # Check if current branch matches the pattern
+        if [ $(is_on_branch "$branch_pattern") -eq 1 ]; then
+            matching_pkgs+=("$pkg")
+        fi
+    done
+    
+    echo "${matching_pkgs[@]}"
+}
+
+pkgs_on_branch "$@"

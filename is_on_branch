@@ -1,0 +1,13 @@
+#!/bin/bash
+
+is_on_branch() {
+    local branch_pattern="$1"
+
+    if [[ "$(pwb)" =~ .*$branch_pattern.* ]]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+is_on_branch "$@"

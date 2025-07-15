@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Connect to Bluetooth Device (cbtd)
+# Usage: cbtd <MAC_ADDRESS>
+# Example: cbtd 68:CA:C4:C0:ED:3E
+
+# Check if MAC address argument is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: cbtd <MAC_ADDRESS>"
+    echo "Example: cbtd 68:CA:C4:C0:ED:3E"
+    echo ""
+    echo "Available paired devices:"
+    blueutil --paired 2>/dev/null || echo "Error: blueutil not found"
+    exit 1
+fi
+
+MAC_ADDRESS="$1"
+
+# Validate MAC address format (basic check)
+if [[ ! $MAC_ADDRESS =~ ^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$ ]]; then
+    echo "Error: Invalid MAC address format. Expected format: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX"
+    exit 1
+fi
+
+# Check if blueutil is installed
+if ! command -v blueutil &> /dev/null; then
+    echo "Error: blueutil is not installed. Install it with: brew install blueutil"
+    exit 1
+fi
+
+echo "Connecting to Bluetooth device ($MAC_ADDRESS)..."
+
+# Connect to the device
+if blueutil --connect "$MAC_ADDRESS"; then
+    echo "Successfully connected to device $MAC_ADDRESS"
+else
+    echo "Failed to connect to device $MAC_ADDRESS"
+    echo ""
+    echo "Troubleshooting tips:"
+    echo "1. Make sure the device is powered on and in pairing mode"
+    echo "2. Check if the device is already paired:"
+    echo "   blueutil --paired"
+    echo "3. If not paired, pair it first:"
+    echo "   blueutil --pair $MAC_ADDRESS"
+    exit 1
+fi

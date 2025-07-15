@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Connect to Gemini Pro AirPods
+# Usage: cg
+
+# Check if blueutil is installed
+if ! command -v blueutil  /dev/null; then
+    echo "Error: blueutil is not installed. Install it with: brew install blueutil"
+    exit 1
+fi
+
+# Set the MAC address of the Gemini Pro device
+MAC_ADDRESS="68:CA:C4:C0:ED:3E"
+
+echo "Connecting to Gemini Pro ($MAC_ADDRESS)..."
+
+# Connect to the device
+if blueutil --connect "$MAC_ADDRESS"; then
+    echo "Successfully connected to Gemini Pro"
+else
+    echo "Failed to connect to Gemini Pro"
+    exit 1
+fi
