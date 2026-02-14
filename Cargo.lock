@@ -602,13 +602,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tkt"
-version = "0.1.0"
-dependencies = [
- "bin-lib",
-]
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
