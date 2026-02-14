@@ -1,0 +1,12 @@
+[package]
+name = "arr-intersect"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "arr_intersect"
+path = "src/main.rs"
+
+[dependencies]
+bin-lib.workspace = true
