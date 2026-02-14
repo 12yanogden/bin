@@ -1,0 +1,9 @@
+[package]
+name = "cmt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bin-lib.workspace = true
+clap.workspace = true
