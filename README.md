@@ -65,10 +65,6 @@ Prints a success message in green text.
 
 Prints the current git branch name.
 
-### repo
-
-Creates a new GitHub repository with the specified name, description, and access level, then opens it in VSCode.
-
 ### tkt
 
 Extracts and prints the ticket number from the current git branch name.
