@@ -1,0 +1,11 @@
+[package]
+name = "pwb"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bin-lib.workspace = true
+
+[dev-dependencies]
+git2.workspace = true
