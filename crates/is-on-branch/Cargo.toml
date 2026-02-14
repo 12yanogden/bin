@@ -1,0 +1,9 @@
+[package]
+name = "is_on_branch"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+bin-lib.workspace = true
+regex.workspace = true
