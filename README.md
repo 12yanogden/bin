@@ -37,18 +37,6 @@ Commits all staged changes with a given message. If a ticket number is found in 
 
 Prints a failure message in red text.
 
-### go_build
-
-Builds all Go binaries in the `cmd` directory of the specified project path. Meant to be used with Cobra.
-
-### go_deploy
-
-Deploys the built Go binaries to `/usr/local/bin`.
-
-### go_update
-
-Updates a Go module to the latest version by removing cached files and references, then re-fetching the module.
-
 ### la
 
 Lists all files, including hidden ones, in the current directory. Equivalent to ls -lha.
@@ -65,14 +53,7 @@ Prints a success message in green text.
 
 Prints the current git branch name.
 
-### repo
-
-Creates a new GitHub repository with the specified name, description, and access level, then opens it in VSCode.
-
 ### tkt
 
 Extracts and prints the ticket number from the current git branch name.
 
-### ugo
-
-Updates the local Go installation to the latest version.
