@@ -167,6 +167,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fail"
+version = "0.1.0"
+dependencies = [
+ "bin-lib",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -418,6 +425,13 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "pass"
+version = "0.1.0"
+dependencies = [
+ "bin-lib",
 ]
 
 [[package]]
