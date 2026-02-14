@@ -1,0 +1,14 @@
+[workspace]
+members = ["crates/bin-lib", "crates/bs", "crates/cmt", "crates/fail", "crates/pass", "crates/pwb", "crates/tkt"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+
+[workspace.dependencies]
+bin-lib = { path = "crates/bin-lib" }
+clap = { version = "4", features = ["derive"] }
+git2 = "0.19"
+regex = "1"
