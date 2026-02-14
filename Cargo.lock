@@ -356,6 +356,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "is_dirty"
+version = "0.1.0"
+dependencies = [
+ "bin-lib",
+]
+
+[[package]]
+name = "is_on_branch"
+version = "0.1.0"
+dependencies = [
+ "bin-lib",
+ "regex",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

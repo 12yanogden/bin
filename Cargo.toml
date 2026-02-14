@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/dot_env", "crates/fail", "crates/pass", "crates/pwb"]
+members = ["crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/dot_env", "crates/fail", "crates/is-dirty", "crates/is-on-branch", "crates/pass", "crates/pwb"]
 resolver = "2"
 
 [workspace.package]
