@@ -3,10 +3,7 @@ name = "arr-subtract"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-
-[[bin]]
-name = "arr_subtract"
-path = "src/main.rs"
+repository.workspace = true
 
 [dependencies]
 bin-lib.workspace = true

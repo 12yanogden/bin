@@ -2,7 +2,7 @@ use std::fs;
 use std::process::Command;
 
 fn dot_env_bin() -> String {
-    let mut path = std::path::PathBuf::from(env!("CARGO_BIN_EXE_dot_env"));
+    let mut path = std::path::PathBuf::from(env!("CARGO_BIN_EXE_dot-env"));
     // Resolve the path to make sure it's absolute
     path = fs::canonicalize(&path).unwrap_or(path);
     path.to_string_lossy().to_string()
@@ -13,7 +13,7 @@ fn run(dir: &std::path::Path, args: &[&str]) -> std::process::Output {
         .args(args)
         .current_dir(dir)
         .output()
-        .expect("failed to execute dot_env")
+        .expect("failed to execute dot-env")
 }
 
 #[test]

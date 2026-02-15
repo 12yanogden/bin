@@ -1,8 +1,9 @@
 [package]
-name = "dot_env"
+name = "dot-env"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 
 [dependencies]
 clap.workspace = true
