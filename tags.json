@@ -1,0 +1,3 @@
+{
+  "bin-admin": ["add_cmd_tag", "disable_cmds_by_tag", "enable_cmds_by_tag", "list_cmd_tags", "rm_cmd_tag"]
+}

@@ -1,9 +1,0 @@
-#!/bin/bash
-
-tkt() {
-    local branch="$(pwb)"
-
-    echo "$(echo "$branch" | egrep -o '[A-Z]+\-[0-9]+')"
-}
-
-tkt "$@"

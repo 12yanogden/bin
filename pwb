@@ -1,9 +1,0 @@
-#!/bin/bash
-
-pwb() {
-    local branch=""
-
-    echo "$(git branch | grep '*' | tr -d '*' | xargs)"
-}
-
-pwb "$@"
