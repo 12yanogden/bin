@@ -1,3 +1,5 @@
 {
-  "bin-admin": ["add-cmd-tag", "disable-cmds-by-tag", "enable-cmds-by-tag", "list-cmd-tags", "rm-cmd-tag"]
+  "bin-admin": ["add-cmd-tag", "disable-cmds-by-tag", "enable-cmds-by-tag", "list-cmd-tags", "rm-cmd-tag"],
+  "git": ["bs", "cb", "cmt", "is-dirty", "is-on-branch", "pwb"],
+  "shell-util": ["arr-intersect", "arr-subtract", "dot-env", "fail", "pass", "x"]
 }
