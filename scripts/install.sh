@@ -70,21 +70,13 @@ fi
 
 echo "Latest release: ${LATEST_TAG}"
 
-# Download archive and tags.json to temp directory
+# Set up temp directory
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-ARCHIVE_NAME="bin-${TARGET}.tar.xz"
-DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$ARCHIVE_NAME"
 TAGS_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/tags.json"
 
-echo "Downloading ${ARCHIVE_NAME}..."
-curl -sL -o "$TMPDIR/$ARCHIVE_NAME" "$DOWNLOAD_URL"
-if [[ ! -s "$TMPDIR/$ARCHIVE_NAME" ]]; then
-    echo "Failed to download archive" >&2
-    exit 1
-fi
-
+# Download tags.json
 echo "Downloading tags.json..."
 curl -sL -o "$TMPDIR/tags.json" "$TAGS_URL"
 if [[ ! -s "$TMPDIR/tags.json" ]]; then
@@ -96,22 +88,55 @@ fi
 mkdir -p "$ALL_DIR"
 mkdir -p "$ENABLED_DIR"
 
-# Extract binaries into all/
-echo "Extracting binaries..."
-tar -xf "$TMPDIR/$ARCHIVE_NAME" -C "$TMPDIR"
+# Get list of all binaries from tags.json
+BINARIES=$(python3 -c "
+import json
+with open('$TMPDIR/tags.json') as f:
+    tags = json.load(f)
+seen = set()
+for cmds in tags.values():
+    for cmd in cmds:
+        if cmd not in seen:
+            seen.add(cmd)
+            print(cmd)
+")
 
-# Find and copy binaries (cargo-dist places them in a subdirectory)
-EXTRACTED_DIR=$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d ! -name ".*" | head -1)
-if [[ -n "$EXTRACTED_DIR" ]]; then
-    cp "$EXTRACTED_DIR"/* "$ALL_DIR/" 2>/dev/null || true
-else
-    # Binaries may be directly in tmpdir
-    cp "$TMPDIR"/bin-*/* "$ALL_DIR/" 2>/dev/null || true
-fi
+# Download and extract each binary
+FAILED_BINARIES=()
+
+while IFS= read -r binary; do
+    ARCHIVE_NAME="${binary}-${TARGET}.tar.xz"
+    DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$ARCHIVE_NAME"
+
+    echo "Downloading ${ARCHIVE_NAME}..."
+    if ! curl -sfL -o "$TMPDIR/$ARCHIVE_NAME" "$DOWNLOAD_URL"; then
+        echo "  Warning: Failed to download ${ARCHIVE_NAME}, skipping" >&2
+        FAILED_BINARIES+=("$binary")
+        continue
+    fi
+
+    if [[ ! -s "$TMPDIR/$ARCHIVE_NAME" ]]; then
+        echo "  Warning: Downloaded empty archive for ${binary}, skipping" >&2
+        FAILED_BINARIES+=("$binary")
+        continue
+    fi
+
+    tar -xf "$TMPDIR/$ARCHIVE_NAME" -C "$TMPDIR"
+
+    # cargo-dist extracts into {binary}-{target}/
+    EXTRACTED_BIN="$TMPDIR/${binary}-${TARGET}/${binary}"
+    if [[ -f "$EXTRACTED_BIN" ]]; then
+        cp "$EXTRACTED_BIN" "$ALL_DIR/"
+    else
+        echo "  Warning: Binary '${binary}' not found after extraction, skipping" >&2
+        FAILED_BINARIES+=("$binary")
+        continue
+    fi
+done <<< "$BINARIES"
 
 chmod +x "$ALL_DIR"/*
 
-# Copy tags.json to project root
+# Copy tags.json to install directory
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 
 # Update PATH in ~/.zshrc
@@ -210,6 +235,15 @@ for cmd in tags.get('$tag', []):
         done <<< "$CMDS"
     fi
 done <<< "$ALL_TAGS"
+
+# Print failure summary if any binaries failed
+if [[ ${#FAILED_BINARIES[@]} -gt 0 ]]; then
+    echo ""
+    echo "Warning: The following binaries failed to install:"
+    for binary in "${FAILED_BINARIES[@]}"; do
+        echo "  - $binary"
+    done
+fi
 
 echo ""
 echo "Installation complete!"
