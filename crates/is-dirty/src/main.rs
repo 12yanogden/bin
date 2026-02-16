@@ -1,7 +1,14 @@
 use bin_lib::git;
+use clap::Parser;
 use std::process::ExitCode;
 
+#[derive(Parser)]
+#[command(about = "Check if the current Git repository has uncommitted changes")]
+struct Cli {}
+
 fn main() -> ExitCode {
+    let _cli = Cli::parse();
+
     let repo = match git::open_repo() {
         Ok(r) => r,
         Err(e) => {
