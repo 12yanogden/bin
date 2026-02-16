@@ -1,16 +1,23 @@
 use bin_lib::{fmt, sets};
+use clap::Parser;
 use std::process::ExitCode;
 
-fn run() -> Result<(), String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+#[derive(Parser)]
+#[command(about = "Find the intersection of two sets")]
+struct Cli {
+    /// First input set (space-delimited string, file path, or '-' for stdin)
+    input1: String,
 
-    if args.len() != 2 {
-        return Err("usage: arr_intersect <input1> <input2>".to_string());
-    }
+    /// Second input set (space-delimited string, file path, or '-' for stdin)
+    input2: String,
+}
+
+fn run() -> Result<(), String> {
+    let cli = Cli::parse();
 
     let mut stdin_used = false;
-    let a = sets::resolve_input(&args[0], &mut stdin_used)?;
-    let b = sets::resolve_input(&args[1], &mut stdin_used)?;
+    let a = sets::resolve_input(&cli.input1, &mut stdin_used)?;
+    let b = sets::resolve_input(&cli.input2, &mut stdin_used)?;
 
     let result = sets::intersect(&a, &b);
     for line in &result {
