@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 pub type TagMap = BTreeMap<String, Vec<String>>;
 
 /// Resolve the project root by finding the binary's parent directory
-/// (either `enabled/` or `disabled/`) and going one level up.
+/// (either `all/` or `enabled/`) and going one level up.
 pub fn project_root() -> Result<PathBuf, String> {
     let exe = std::env::current_exe()
         .map_err(|e| format!("failed to determine executable path: {}", e))?;
@@ -26,8 +26,8 @@ pub fn enabled_dir() -> Result<PathBuf, String> {
     Ok(project_root()?.join("enabled"))
 }
 
-pub fn disabled_dir() -> Result<PathBuf, String> {
-    Ok(project_root()?.join("disabled"))
+pub fn all_dir() -> Result<PathBuf, String> {
+    Ok(project_root()?.join("all"))
 }
 
 pub fn read_tags(path: &Path) -> Result<TagMap, String> {
@@ -46,14 +46,16 @@ pub fn write_tags(path: &Path, tags: &TagMap) -> Result<(), String> {
     Ok(())
 }
 
-/// Check if a command binary exists in the enabled directory.
+/// Check if a symlink exists for the command in enabled/.
 pub fn is_enabled(cmd: &str) -> Result<bool, String> {
-    Ok(enabled_dir()?.join(cmd).exists())
+    Ok(enabled_dir()?.join(cmd).symlink_metadata().is_ok())
 }
 
-/// Check if a command binary exists in the disabled directory.
+/// Check if a command binary exists in all/ but has no symlink in enabled/.
 pub fn is_disabled(cmd: &str) -> Result<bool, String> {
-    Ok(disabled_dir()?.join(cmd).exists())
+    let in_all = all_dir()?.join(cmd).exists();
+    let in_enabled = enabled_dir()?.join(cmd).symlink_metadata().is_ok();
+    Ok(in_all && !in_enabled)
 }
 
 #[cfg(test)]

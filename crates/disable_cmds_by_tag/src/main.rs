@@ -24,22 +24,17 @@ fn run() -> Result<String, String> {
         .ok_or_else(|| format!("Tag '{}' not found", cli.tag))?;
 
     let enabled_dir = tags::enabled_dir()?;
-    let disabled_dir = tags::disabled_dir()?;
     let mut disabled = Vec::new();
 
     for cmd in cmds {
         let enabled_path = enabled_dir.join(cmd);
-        let disabled_path = disabled_dir.join(cmd);
 
-        if enabled_path.exists() {
-            std::fs::rename(&enabled_path, &disabled_path)
+        if enabled_path.symlink_metadata().is_ok() {
+            std::fs::remove_file(&enabled_path)
                 .map_err(|e| format!("failed to disable '{}': {}", cmd, e))?;
             disabled.push(cmd.as_str());
-        } else if disabled_path.exists() {
-            // Already disabled, skip
-        } else {
-            eprintln!("warning: '{}' not found in enabled/ or disabled/", cmd);
         }
+        // If symlink doesn't exist, already disabled — skip silently
     }
 
     if disabled.is_empty() {

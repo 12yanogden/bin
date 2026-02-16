@@ -19,21 +19,21 @@ fn run() -> Result<String, String> {
         .ok_or_else(|| format!("Tag '{}' not found", cli.tag))?;
 
     let enabled_dir = tags::enabled_dir()?;
-    let disabled_dir = tags::disabled_dir()?;
+    let all_dir = tags::all_dir()?;
     let mut enabled = Vec::new();
 
     for cmd in cmds {
-        let disabled_path = disabled_dir.join(cmd);
         let enabled_path = enabled_dir.join(cmd);
+        let all_path = all_dir.join(cmd);
 
-        if disabled_path.exists() {
-            std::fs::rename(&disabled_path, &enabled_path)
+        if enabled_path.symlink_metadata().is_ok() {
+            // Already enabled (symlink exists), skip
+        } else if all_path.exists() {
+            std::os::unix::fs::symlink(&all_path, &enabled_path)
                 .map_err(|e| format!("failed to enable '{}': {}", cmd, e))?;
             enabled.push(cmd.as_str());
-        } else if enabled_path.exists() {
-            // Already enabled, skip
         } else {
-            eprintln!("warning: '{}' not found in enabled/ or disabled/", cmd);
+            eprintln!("warning: '{}' not found in all/", cmd);
         }
     }
 
