@@ -159,16 +159,37 @@ chmod +x "$ALL_DIR"/*
 # Copy tags.json to install directory
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 
-# Update PATH in ~/.zshrc
-SHELL_RC="$HOME/.zshrc"
+# Detect shell rc file and PATH syntax
 MARKER="# bin-tools"
-PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+
+case "$SHELL" in
+    */zsh)
+        SHELL_RC="$HOME/.zshrc"
+        PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+        ;;
+    */bash)
+        SHELL_RC="$HOME/.bashrc"
+        PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+        ;;
+    */fish)
+        SHELL_RC="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
+        PATH_LINE="set -gx PATH $INSTALL_DIR/enabled \$PATH $MARKER"
+        ;;
+    *)
+        SHELL_RC="$HOME/.profile"
+        PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+        echo "Warning: Unrecognized shell '$SHELL', falling back to $SHELL_RC" >&2
+        ;;
+esac
 
 if [[ -f "$SHELL_RC" ]]; then
     TMP_RC="$(mktemp)"
     grep -v "$MARKER" "$SHELL_RC" > "$TMP_RC" || true
     mv "$TMP_RC" "$SHELL_RC"
 fi
+
+# Ensure parent directory exists (needed for fish config)
+mkdir -p "$(dirname "$SHELL_RC")"
 
 printf '\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
 echo "Added $INSTALL_DIR/enabled to PATH in $SHELL_RC"
@@ -283,4 +304,4 @@ echo "Installation complete!"
 echo "  Binary directory:   $ALL_DIR"
 echo "  Enabled directory:  $ENABLED_DIR"
 echo ""
-echo "Restart your shell or run: source ~/.zshrc"
+echo "Restart your shell or run: source $SHELL_RC"
