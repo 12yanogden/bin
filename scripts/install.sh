@@ -2,15 +2,17 @@
 set -euo pipefail
 
 REPO="12yanogden/bin"
-INSTALL_DIR="$HOME/bin"
-ENABLED_DIR="$INSTALL_DIR/enabled"
-ALL_DIR="$INSTALL_DIR/all"
+INSTALL_DIR="${BIN_INSTALL_DIR:-$HOME/.bin}"
 NON_INTERACTIVE=false
 SELECTED_TAGS=()
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --dir)
+            INSTALL_DIR="$2"
+            shift 2
+            ;;
         --tags)
             NON_INTERACTIVE=true
             IFS=',' read -ra SELECTED_TAGS <<< "$2"
@@ -22,6 +24,23 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+ENABLED_DIR="$INSTALL_DIR/enabled"
+ALL_DIR="$INSTALL_DIR/all"
+
+# Check dependencies
+if ! command -v python3 &>/dev/null; then
+    echo "Error: python3 is required but not installed" >&2
+    exit 1
+fi
+
+if [[ "$NON_INTERACTIVE" == "false" ]]; then
+    if ! command -v whiptail &>/dev/null; then
+        echo "Error: whiptail is required for interactive tag selection" >&2
+        echo "Install it or use --tags to specify tags non-interactively" >&2
+        exit 1
+    fi
+fi
 
 # Detect platform and architecture
 OS="$(uname -s)"
@@ -96,12 +115,18 @@ chmod +x "$ALL_DIR"/*
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 
 # Update PATH in ~/.zshrc
-PATH_LINE='export PATH="$PATH:$HOME/bin/enabled"'
-MARKER="# Personal binaries"
-if ! grep -qF "$MARKER" "$HOME/.zshrc" 2>/dev/null; then
-    printf '\n%s\n%s\n' "$MARKER" "$PATH_LINE" >> "$HOME/.zshrc"
-    echo "Added enabled/ to PATH in ~/.zshrc"
+SHELL_RC="$HOME/.zshrc"
+MARKER="# bin-tools"
+PATH_LINE="export PATH=\"\$PATH:$INSTALL_DIR/enabled\" $MARKER"
+
+if [[ -f "$SHELL_RC" ]]; then
+    TMP_RC="$(mktemp)"
+    grep -v "$MARKER" "$SHELL_RC" > "$TMP_RC" || true
+    mv "$TMP_RC" "$SHELL_RC"
 fi
+
+printf '\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
+echo "Added $INSTALL_DIR/enabled to PATH in $SHELL_RC"
 
 # Tag selection
 ALL_TAGS=$(python3 -c "
@@ -126,44 +151,36 @@ if [[ "$NON_INTERACTIVE" == "true" ]]; then
     fi
 else
     # Interactive mode with whiptail
-    if command -v whiptail &>/dev/null; then
-        CHECKLIST_ITEMS=()
-        while IFS= read -r tag; do
-            CMD_COUNT=$(python3 -c "
+    CHECKLIST_ITEMS=()
+    while IFS= read -r tag; do
+        CMD_COUNT=$(python3 -c "
 import json
 with open('$INSTALL_DIR/tags.json') as f:
     tags = json.load(f)
 print(len(tags.get('$tag', [])))
 ")
-            CHECKLIST_ITEMS+=("$tag" "${CMD_COUNT} commands" "ON")
-        done <<< "$ALL_TAGS"
+        CHECKLIST_ITEMS+=("$tag" "${CMD_COUNT} commands" "ON")
+    done <<< "$ALL_TAGS"
 
-        SELECTED=$(whiptail --checklist "Select tags to enable:" 20 60 10 "${CHECKLIST_ITEMS[@]}" 3>&1 1>&2 2>&3) || true
+    SELECTED=$(whiptail --checklist "Select tags to enable:" 20 60 10 "${CHECKLIST_ITEMS[@]}" 3>&1 1>&2 2>&3) || true
 
-        # Parse whiptail output (quoted, space-separated)
-        SELECTED_TAGS=()
-        for tag in $SELECTED; do
-            tag="${tag//\"/}"
-            SELECTED_TAGS+=("$tag")
-        done
+    # Parse whiptail output (quoted, space-separated)
+    SELECTED_TAGS=()
+    for tag in $SELECTED; do
+        tag="${tag//\"/}"
+        SELECTED_TAGS+=("$tag")
+    done
 
-        # Ensure bin-admin is always selected
-        HAS_BIN_ADMIN=false
-        for tag in "${SELECTED_TAGS[@]}"; do
-            if [[ "$tag" == "bin-admin" ]]; then
-                HAS_BIN_ADMIN=true
-                break
-            fi
-        done
-        if [[ "$HAS_BIN_ADMIN" == "false" ]]; then
-            SELECTED_TAGS+=("bin-admin")
+    # Ensure bin-admin is always selected
+    HAS_BIN_ADMIN=false
+    for tag in "${SELECTED_TAGS[@]}"; do
+        if [[ "$tag" == "bin-admin" ]]; then
+            HAS_BIN_ADMIN=true
+            break
         fi
-    else
-        echo "whiptail not found, enabling all tags"
-        SELECTED_TAGS=()
-        while IFS= read -r tag; do
-            SELECTED_TAGS+=("$tag")
-        done <<< "$ALL_TAGS"
+    done
+    if [[ "$HAS_BIN_ADMIN" == "false" ]]; then
+        SELECTED_TAGS+=("bin-admin")
     fi
 fi
 
