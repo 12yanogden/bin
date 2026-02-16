@@ -4,7 +4,7 @@ set -euo pipefail
 REPO="12yanogden/bin"
 INSTALL_DIR="$HOME/Projects/rust/bin"
 ENABLED_DIR="$INSTALL_DIR/enabled"
-DISABLED_DIR="$INSTALL_DIR/disabled"
+ALL_DIR="$INSTALL_DIR/all"
 NON_INTERACTIVE=false
 SELECTED_TAGS=()
 
@@ -74,23 +74,23 @@ if [[ ! -s "$TMPDIR/tags.json" ]]; then
 fi
 
 # Create directories
+mkdir -p "$ALL_DIR"
 mkdir -p "$ENABLED_DIR"
-mkdir -p "$DISABLED_DIR"
 
-# Extract binaries into enabled/
+# Extract binaries into all/
 echo "Extracting binaries..."
 tar -xf "$TMPDIR/$ARCHIVE_NAME" -C "$TMPDIR"
 
 # Find and copy binaries (cargo-dist places them in a subdirectory)
 EXTRACTED_DIR=$(find "$TMPDIR" -mindepth 1 -maxdepth 1 -type d ! -name ".*" | head -1)
 if [[ -n "$EXTRACTED_DIR" ]]; then
-    cp "$EXTRACTED_DIR"/* "$ENABLED_DIR/" 2>/dev/null || true
+    cp "$EXTRACTED_DIR"/* "$ALL_DIR/" 2>/dev/null || true
 else
     # Binaries may be directly in tmpdir
-    cp "$TMPDIR"/bin-*/* "$ENABLED_DIR/" 2>/dev/null || true
+    cp "$TMPDIR"/bin-*/* "$ALL_DIR/" 2>/dev/null || true
 fi
 
-chmod +x "$ENABLED_DIR"/*
+chmod +x "$ALL_DIR"/*
 
 # Copy tags.json to project root
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
@@ -167,7 +167,7 @@ print(len(tags.get('$tag', [])))
     fi
 fi
 
-# Move unselected tag commands to disabled/
+# Create symlinks in enabled/ for selected tag commands
 while IFS= read -r tag; do
     IS_SELECTED=false
     for selected in "${SELECTED_TAGS[@]}"; do
@@ -177,7 +177,7 @@ while IFS= read -r tag; do
         fi
     done
 
-    if [[ "$IS_SELECTED" == "false" ]]; then
+    if [[ "$IS_SELECTED" == "true" ]]; then
         CMDS=$(python3 -c "
 import json
 with open('$INSTALL_DIR/tags.json') as f:
@@ -186,9 +186,9 @@ for cmd in tags.get('$tag', []):
     print(cmd)
 ")
         while IFS= read -r cmd; do
-            if [[ -f "$ENABLED_DIR/$cmd" ]]; then
-                mv "$ENABLED_DIR/$cmd" "$DISABLED_DIR/$cmd"
-                echo "  Disabled: $cmd (tag: $tag)"
+            if [[ -n "$cmd" && -f "$ALL_DIR/$cmd" && ! -L "$ENABLED_DIR/$cmd" ]]; then
+                ln -s "$ALL_DIR/$cmd" "$ENABLED_DIR/$cmd"
+                echo "  Enabled: $cmd (tag: $tag)"
             fi
         done <<< "$CMDS"
     fi
@@ -196,7 +196,7 @@ done <<< "$ALL_TAGS"
 
 echo ""
 echo "Installation complete!"
+echo "  Binary directory:   $ALL_DIR"
 echo "  Enabled directory:  $ENABLED_DIR"
-echo "  Disabled directory: $DISABLED_DIR"
 echo ""
 echo "Restart your shell or run: source ~/.zshrc"
