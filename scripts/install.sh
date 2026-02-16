@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO="12yanogden/bin"
-INSTALL_DIR="$HOME/Projects/rust/bin"
+INSTALL_DIR="$HOME/bin"
 ENABLED_DIR="$INSTALL_DIR/enabled"
 ALL_DIR="$INSTALL_DIR/all"
 NON_INTERACTIVE=false
@@ -96,7 +96,7 @@ chmod +x "$ALL_DIR"/*
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 
 # Update PATH in ~/.zshrc
-PATH_LINE='export PATH="$PATH:~/Projects/rust/bin/enabled"'
+PATH_LINE='export PATH="$PATH:$HOME/bin/enabled"'
 MARKER="# Personal binaries"
 if ! grep -qF "$MARKER" "$HOME/.zshrc" 2>/dev/null; then
     printf '\n%s\n%s\n' "$MARKER" "$PATH_LINE" >> "$HOME/.zshrc"
