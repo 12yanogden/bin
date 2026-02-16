@@ -5,6 +5,14 @@ fn run() -> Result<(), String> {
     let path = tags::tags_json_path()?;
     let map = tags::read_tags(&path)?;
 
+    let col_width = map
+        .values()
+        .flat_map(|cmds| cmds.iter())
+        .map(|cmd| cmd.len())
+        .max()
+        .unwrap_or(0)
+        + 1;
+
     for (tag, cmds) in &map {
         println!("{}:", tag);
         for cmd in cmds {
@@ -15,7 +23,7 @@ fn run() -> Result<(), String> {
             } else {
                 "[not found]".to_string()
             };
-            println!("  {:<12}{}", cmd, status);
+            println!("  {:<width$}{}", cmd, status, width = col_width);
         }
     }
 
