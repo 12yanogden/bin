@@ -4,16 +4,29 @@ This project is a set of binaries and shell scripts that can be installed to enh
 
 ## Installation
 
-To install the binaries and shell scripts, run the `install_bin.sh` script:
+Install pre-built binaries with a single command:
 
 ```bash
-./install_bin.sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/12yanogden/bin/releases/latest/download/install.sh | sh
 ```
 
-This script will:
+The installer presents an interactive tag selector for choosing which commands to enable.
 
-- Make the binaries executable.
-- Update your `.zshrc` file to include useful aliases and add the custom bin directory to your PATH.
+For non-interactive or scripted installs, use the `--tags` flag:
+
+```bash
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/12yanogden/bin/releases/latest/download/install.sh | sh -s -- --tags git,shell
+```
+
+### Development
+
+To build from source:
+
+```bash
+git clone https://github.com/12yanogden/bin.git
+cd bin
+cargo build --release
+```
 
 ## Commands
 
@@ -56,4 +69,3 @@ Prints the current git branch name.
 ### tkt
 
 Extracts and prints the ticket number from the current git branch name.
-

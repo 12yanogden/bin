@@ -1,8 +1,9 @@
 [package]
-name = "list_cmd_tags"
+name = "list-cmd-tags"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 
 [dependencies]
 bin-lib.workspace = true

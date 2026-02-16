@@ -5,7 +5,7 @@ fn main() -> ExitCode {
     let repo = match git::open_repo() {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("is_dirty: {}", e);
+            eprintln!("is-dirty: {}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -20,7 +20,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Err(e) => {
-            eprintln!("is_dirty: {}", e);
+            eprintln!("is-dirty: {}", e);
             ExitCode::FAILURE
         }
     }

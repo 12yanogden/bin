@@ -1,8 +1,9 @@
 [package]
-name = "is_on_branch"
+name = "is-on-branch"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 
 [dependencies]
 bin-lib.workspace = true

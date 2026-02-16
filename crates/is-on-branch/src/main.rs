@@ -11,7 +11,7 @@ fn main() -> ExitCode {
     let pattern = match std::env::args().nth(1) {
         Some(p) => p,
         None => {
-            eprintln!("usage: is_on_branch <pattern>");
+            eprintln!("usage: is-on-branch <pattern>");
             return ExitCode::FAILURE;
         }
     };
@@ -19,7 +19,7 @@ fn main() -> ExitCode {
     let branch = match git::get_current_branch() {
         Ok(b) => b,
         Err(e) => {
-            eprintln!("is_on_branch: {}", e);
+            eprintln!("is-on-branch: {}", e);
             return ExitCode::FAILURE;
         }
     };
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         Ok(true) => println!("1"),
         Ok(false) => println!("0"),
         Err(e) => {
-            eprintln!("is_on_branch: {}", e);
+            eprintln!("is-on-branch: {}", e);
             return ExitCode::FAILURE;
         }
     }

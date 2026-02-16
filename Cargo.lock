@@ -3,7 +3,7 @@
 version = 3
 
 [[package]]
-name = "add_cmd_tag"
+name = "add-cmd-tag"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
@@ -194,7 +194,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
-name = "disable_cmds_by_tag"
+name = "disable-cmds-by-tag"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
@@ -213,7 +213,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dot_env"
+name = "dot-env"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -221,7 +221,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "enable_cmds_by_tag"
+name = "enable-cmds-by-tag"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
@@ -460,14 +460,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "is_dirty"
+name = "is-dirty"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
 ]
 
 [[package]]
-name = "is_on_branch"
+name = "is-on-branch"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
@@ -555,7 +555,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df1d3c3b53da64cf5760482273a98e575c651a67eec7f77df96b5b642de8f039"
 
 [[package]]
-name = "list_cmd_tags"
+name = "list-cmd-tags"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
@@ -709,7 +709,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a96887878f22d7bad8a3b6dc5b7440e0ada9a245242924394987b21cf2210a4c"
 
 [[package]]
-name = "rm_cmd_tag"
+name = "rm-cmd-tag"
 version = "0.1.0"
 dependencies = [
  "bin-lib",

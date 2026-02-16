@@ -3,6 +3,7 @@ name = "bin-lib"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
 
 [dependencies]
 git2.workspace = true
