@@ -80,6 +80,7 @@ name = "arr-intersect"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
+ "clap",
 ]
 
 [[package]]
@@ -87,6 +88,7 @@ name = "arr-subtract"
 version = "0.1.0"
 dependencies = [
  "bin-lib",
+ "clap",
 ]
 
 [[package]]
