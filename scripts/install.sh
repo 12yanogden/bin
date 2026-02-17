@@ -6,6 +6,23 @@ INSTALL_DIR="${BIN_INSTALL_DIR:-$HOME/.bin}"
 NON_INTERACTIVE=false
 SELECTED_TAGS=()
 
+usage() {
+    cat <<EOF
+Usage: install.sh [OPTIONS]
+
+Download and install binaries from the latest release.
+
+Options:
+    --dir <path>            Set install directory (default: \$HOME/.bin or \$BIN_INSTALL_DIR)
+    --tags <tag1,tag2,...>   Install specific tags non-interactively
+    -h, --help              Show this help message
+
+Example:
+    install.sh --dir ~/.local/bin --tags git,bin-admin
+EOF
+    exit 0
+}
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -17,6 +34,9 @@ while [[ $# -gt 0 ]]; do
             NON_INTERACTIVE=true
             IFS=',' read -ra SELECTED_TAGS <<< "$2"
             shift 2
+            ;;
+        --help|-h)
+            usage
             ;;
         *)
             echo "Unknown argument: $1" >&2
