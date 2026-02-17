@@ -1,0 +1,143 @@
+name: Smoke Test Install
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+jobs:
+  smoke-test-install:
+    runs-on: "ubuntu-22.04"
+    if: ${{ fromJson(inputs.plan).ci.github.artifacts_matrix.include != null }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Stage artifacts for install script
+        shell: bash
+        run: |
+          STAGE_DIR="$RUNNER_TEMP/staged-release"
+          mkdir -p "$STAGE_DIR"
+
+          # Copy tags.json and install.sh from the repo checkout (not from
+          # artifacts — they are extra-artifacts built by build-global-artifacts
+          # which may run in parallel).
+          cp tags.json "$STAGE_DIR/tags.json"
+          cp scripts/install.sh "$STAGE_DIR/install.sh"
+          chmod +x "$STAGE_DIR/install.sh"
+
+          # Copy the Linux x86_64 binary archives
+          for archive in artifacts/*-x86_64-unknown-linux-gnu.tar.xz; do
+            if [[ -f "$archive" ]]; then
+              cp "$archive" "$STAGE_DIR/"
+            fi
+          done
+
+          echo "Staged files:"
+          ls -la "$STAGE_DIR/"
+
+          echo "STAGE_DIR=$STAGE_DIR" >> "$GITHUB_ENV"
+
+      - name: Prepare install script for local testing
+        shell: bash
+        run: |
+          INSTALL_SCRIPT="$STAGE_DIR/install.sh"
+
+          # Create a fake "latest release" JSON response
+          FAKE_TAG="v-local-test"
+          FAKE_API_RESPONSE='{"tag_name":"'"$FAKE_TAG"'"}'
+          echo "$FAKE_API_RESPONSE" > "$STAGE_DIR/api-latest.json"
+
+          # Replace the GitHub API URL with a file:// URL to the fake response
+          sed -i "s|https://api.github.com/repos/\$REPO/releases/latest|file://$STAGE_DIR/api-latest.json|g" "$INSTALL_SCRIPT"
+
+          # Replace the download base URL with file:// pointing to staged dir
+          sed -i "s|https://github.com/\$REPO/releases/download/\$LATEST_TAG|file://$STAGE_DIR|g" "$INSTALL_SCRIPT"
+
+          echo "Patched install.sh for local testing"
+
+      - name: Run install smoke test (happy path)
+        shell: bash
+        run: |
+          bash "$STAGE_DIR/install.sh" --tags bin-admin
+
+          echo ""
+          echo "=== Verifying installation ==="
+
+          EXPECTED_BINARIES=("add-cmd-tag" "disable-cmds-by-tag" "enable-cmds-by-tag" "list-cmd-tags" "rm-cmd-tag")
+          MISSING=()
+
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [[ ! -f "$HOME/.bin/all/$binary" ]]; then
+              MISSING+=("$binary")
+              echo "FAIL: $binary not found in ~/.bin/all/"
+            else
+              echo "OK: $binary found in ~/.bin/all/"
+            fi
+          done
+
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [[ ! -L "$HOME/.bin/enabled/$binary" ]]; then
+              echo "FAIL: symlink for $binary not found in ~/.bin/enabled/"
+              MISSING+=("$binary-symlink")
+            else
+              echo "OK: symlink for $binary found in ~/.bin/enabled/"
+            fi
+          done
+
+          if [[ ! -f "$HOME/.bin/tags.json" ]]; then
+            echo "FAIL: tags.json not found in ~/.bin/"
+            MISSING+=("tags.json")
+          else
+            echo "OK: tags.json found in ~/.bin/"
+          fi
+
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo ""
+            echo "SMOKE TEST FAILED: ${#MISSING[@]} items missing"
+            exit 1
+          fi
+
+          echo ""
+          echo "SMOKE TEST PASSED"
+
+      - name: Run install smoke test (missing archive detection)
+        shell: bash
+        run: |
+          rm -rf "$HOME/.bin"
+
+          rm -f "$STAGE_DIR/add-cmd-tag-x86_64-unknown-linux-gnu.tar.xz"
+          echo "Removed add-cmd-tag archive to simulate missing binary"
+
+          bash "$STAGE_DIR/install.sh" --tags bin-admin
+
+          echo ""
+          echo "=== Verifying missing archive detection ==="
+
+          if [[ -f "$HOME/.bin/all/add-cmd-tag" ]]; then
+            echo "FAIL: add-cmd-tag should NOT be present (archive was removed)"
+            exit 1
+          else
+            echo "OK: add-cmd-tag correctly missing from ~/.bin/all/"
+          fi
+
+          for binary in disable-cmds-by-tag enable-cmds-by-tag list-cmd-tags rm-cmd-tag; do
+            if [[ ! -f "$HOME/.bin/all/$binary" ]]; then
+              echo "FAIL: $binary should still be present"
+              exit 1
+            else
+              echo "OK: $binary found in ~/.bin/all/"
+            fi
+          done
+
+          echo ""
+          echo "MISSING ARCHIVE DETECTION TEST PASSED"
