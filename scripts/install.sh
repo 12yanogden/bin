@@ -142,7 +142,7 @@ cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 # Update PATH in ~/.zshrc
 SHELL_RC="$HOME/.zshrc"
 MARKER="# bin-tools"
-PATH_LINE="export PATH=\"\$PATH:$INSTALL_DIR/enabled\" $MARKER"
+PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
 
 if [[ -f "$SHELL_RC" ]]; then
     TMP_RC="$(mktemp)"
