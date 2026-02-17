@@ -211,14 +211,181 @@ jobs:
           path: |
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
+  # Smoke-test the install script against built artifacts
+  smoke-test-install:
+    needs:
+      - plan
+      - build-local-artifacts
+    # Only run when we have artifacts (same condition as build-global-artifacts)
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    runs-on: "ubuntu-22.04"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Stage artifacts for install script
+        shell: bash
+        run: |
+          # Create a directory structure that mirrors the GitHub release download layout
+          STAGE_DIR="$RUNNER_TEMP/staged-release"
+          mkdir -p "$STAGE_DIR"
+
+          # Copy tags.json and install.sh from the checked-out repo source.
+          # These are extra-artifacts built by build-global-artifacts (which runs
+          # in parallel with this job), so they are NOT available in the downloaded
+          # build artifacts. The repo checkout has the source files directly.
+          cp tags.json "$STAGE_DIR/tags.json"
+          cp scripts/install.sh "$STAGE_DIR/install.sh"
+          chmod +x "$STAGE_DIR/install.sh"
+
+          # Copy the Linux x86_64 binary archives
+          # cargo-dist produces archives named like: {binary}-x86_64-unknown-linux-gnu.tar.xz
+          for archive in artifacts/*-x86_64-unknown-linux-gnu.tar.xz; do
+            if [[ -f "$archive" ]]; then
+              cp "$archive" "$STAGE_DIR/"
+            fi
+          done
+
+          echo "Staged files:"
+          ls -la "$STAGE_DIR/"
+
+          echo "STAGE_DIR=$STAGE_DIR" >> "$GITHUB_ENV"
+
+      - name: Prepare install script for local testing
+        shell: bash
+        run: |
+          # Patch the copy of install.sh to use file:// URLs instead of GitHub URLs
+          # This does NOT modify the source install.sh — only the staged copy
+          INSTALL_SCRIPT="$STAGE_DIR/install.sh"
+
+          # Create a fake "latest release" JSON response for the API call
+          # The script uses: curl -sL "https://api.github.com/repos/$REPO/releases/latest"
+          # and greps for "tag_name". We need to make it return a tag that maps to our staged dir.
+          FAKE_TAG="v-local-test"
+          FAKE_API_RESPONSE='{"tag_name":"'"$FAKE_TAG"'"}'
+          echo "$FAKE_API_RESPONSE" > "$STAGE_DIR/api-latest.json"
+
+          # Replace the GitHub API URL with a file:// URL to the fake response
+          sed -i "s|https://api.github.com/repos/\$REPO/releases/latest|file://$STAGE_DIR/api-latest.json|g" "$INSTALL_SCRIPT"
+
+          # Replace the download base URL for tags.json and archives
+          # Original pattern: https://github.com/$REPO/releases/download/$LATEST_TAG/
+          # We need to replace this with file://$STAGE_DIR/
+          # The script constructs URLs like:
+          #   TAGS_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/tags.json"
+          #   DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$ARCHIVE_NAME"
+          # After the sed on the API URL, LATEST_TAG will be "v-local-test"
+          # So we replace the download base URL pattern
+          sed -i "s|https://github.com/\$REPO/releases/download/\$LATEST_TAG|file://$STAGE_DIR|g" "$INSTALL_SCRIPT"
+
+          echo "Patched install.sh for local testing"
+
+      - name: Run install smoke test (happy path)
+        shell: bash
+        run: |
+          # Run the install script with --tags bin-admin
+          bash "$STAGE_DIR/install.sh" --tags bin-admin
+
+          echo ""
+          echo "=== Verifying installation ==="
+
+          # Verify bin-admin binaries exist in ~/.bin/all/
+          EXPECTED_BINARIES=("add-cmd-tag" "disable-cmds-by-tag" "enable-cmds-by-tag" "list-cmd-tags" "rm-cmd-tag")
+          MISSING=()
+
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [[ ! -f "$HOME/.bin/all/$binary" ]]; then
+              MISSING+=("$binary")
+              echo "FAIL: $binary not found in ~/.bin/all/"
+            else
+              echo "OK: $binary found in ~/.bin/all/"
+            fi
+          done
+
+          # Verify symlinks exist in ~/.bin/enabled/
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [[ ! -L "$HOME/.bin/enabled/$binary" ]]; then
+              echo "FAIL: symlink for $binary not found in ~/.bin/enabled/"
+              MISSING+=("$binary-symlink")
+            else
+              echo "OK: symlink for $binary found in ~/.bin/enabled/"
+            fi
+          done
+
+          # Verify tags.json was copied
+          if [[ ! -f "$HOME/.bin/tags.json" ]]; then
+            echo "FAIL: tags.json not found in ~/.bin/"
+            MISSING+=("tags.json")
+          else
+            echo "OK: tags.json found in ~/.bin/"
+          fi
+
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo ""
+            echo "SMOKE TEST FAILED: ${#MISSING[@]} items missing"
+            exit 1
+          fi
+
+          echo ""
+          echo "SMOKE TEST PASSED"
+
+      - name: Run install smoke test (missing archive detection)
+        shell: bash
+        run: |
+          # Clean up previous install
+          rm -rf "$HOME/.bin"
+
+          # Remove one archive to simulate a missing binary
+          # Use add-cmd-tag as the archive to remove
+          rm -f "$STAGE_DIR/add-cmd-tag-x86_64-unknown-linux-gnu.tar.xz"
+
+          echo "Removed add-cmd-tag archive to simulate missing binary"
+
+          # Re-run the install script — it should still exit 0 (it warns but continues)
+          # but add-cmd-tag should be missing from ~/.bin/all/
+          bash "$STAGE_DIR/install.sh" --tags bin-admin
+
+          echo ""
+          echo "=== Verifying missing archive detection ==="
+
+          # Verify add-cmd-tag is NOT in ~/.bin/all/ (it was removed)
+          if [[ -f "$HOME/.bin/all/add-cmd-tag" ]]; then
+            echo "FAIL: add-cmd-tag should NOT be present (archive was removed)"
+            exit 1
+          else
+            echo "OK: add-cmd-tag correctly missing from ~/.bin/all/"
+          fi
+
+          # Verify the other bin-admin binaries ARE present
+          for binary in disable-cmds-by-tag enable-cmds-by-tag list-cmd-tags rm-cmd-tag; do
+            if [[ ! -f "$HOME/.bin/all/$binary" ]]; then
+              echo "FAIL: $binary should still be present"
+              exit 1
+            else
+              echo "OK: $binary found in ~/.bin/all/"
+            fi
+          done
+
+          echo ""
+          echo "MISSING ARCHIVE DETECTION TEST PASSED"
+
   # Determines if we should publish/announce
   host:
     needs:
       - plan
       - build-local-artifacts
       - build-global-artifacts
-    # Only run if we're "publishing", and only if plan, local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') }}
+      - smoke-test-install
+    # Only run if we're "publishing", and only if plan, local, global, and smoke-test didn't fail (skipped is fine)
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') && (needs.smoke-test-install.result == 'skipped' || needs.smoke-test-install.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-22.04"
