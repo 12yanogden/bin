@@ -209,6 +209,19 @@ print(len(tags.get('$tag', [])))
     fi
 fi
 
+# Remove existing symlinks from enabled/ (preserves regular files)
+STALE_COUNT=0
+for f in "$ENABLED_DIR"/*; do
+    if [[ -L "$f" ]]; then
+        rm "$f"
+        STALE_COUNT=$((STALE_COUNT + 1))
+    fi
+done
+
+if [[ "$STALE_COUNT" -gt 0 ]]; then
+    echo "Cleared $STALE_COUNT existing symlinks from enabled/"
+fi
+
 # Create symlinks in enabled/ for selected tag commands
 while IFS= read -r tag; do
     IS_SELECTED=false
