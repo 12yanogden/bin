@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/add_cmd_tag", "crates/arr-intersect", "crates/arr-subtract", "crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/disable_cmds_by_tag", "crates/dot_env", "crates/enable_cmds_by_tag", "crates/fail", "crates/is-dirty", "crates/is-on-branch", "crates/list_cmd_tags", "crates/pass", "crates/pwb", "crates/rm_cmd_tag", "crates/x"]
+members = ["crates/add_cmd_tag", "crates/arr-intersect", "crates/arr-subtract", "crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/disable_cmds_by_tag", "crates/dot_env", "crates/enable_cmds_by_tag", "crates/fail", "crates/is-dirty", "crates/is-on-branch", "crates/list_cmd_tags", "crates/pass", "crates/pwb", "crates/rm_cmd_tag", "crates/skill-review-mailer", "crates/x"]
 resolver = "2"
 
 [workspace.package]
