@@ -54,14 +54,6 @@ if ! command -v python3 &>/dev/null; then
     exit 1
 fi
 
-if [[ "$NON_INTERACTIVE" == "false" ]]; then
-    if ! command -v whiptail &>/dev/null; then
-        echo "Error: whiptail is required for interactive tag selection" >&2
-        echo "Install it or use --tags to specify tags non-interactively" >&2
-        exit 1
-    fi
-fi
-
 # Detect platform and architecture
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -156,6 +148,16 @@ done <<< "$BINARIES"
 
 chmod +x "$ALL_DIR"/*
 
+if [[ "$NON_INTERACTIVE" == "false" ]]; then
+    for failed in "${FAILED_BINARIES[@]:-}"; do
+        if [[ "$failed" == "multiselect" ]]; then
+            echo "Error: multiselect binary failed to download — required for interactive tag selection" >&2
+            echo "Use --tags to specify tags non-interactively" >&2
+            exit 1
+        fi
+    done
+fi
+
 # Copy tags.json to install directory
 cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
 
@@ -216,8 +218,8 @@ if [[ "$NON_INTERACTIVE" == "true" ]]; then
         SELECTED_TAGS+=("bin-admin")
     fi
 else
-    # Interactive mode with whiptail
-    CHECKLIST_ITEMS=()
+    ITEMS_TSV="$TMPDIR/items.tsv"
+    : > "$ITEMS_TSV"
     while IFS= read -r tag; do
         CMD_COUNT=$(python3 -c "
 import json
@@ -225,17 +227,15 @@ with open('$INSTALL_DIR/tags.json') as f:
     tags = json.load(f)
 print(len(tags.get('$tag', [])))
 ")
-        CHECKLIST_ITEMS+=("$tag" "${CMD_COUNT} commands" "ON")
+        printf '%s\t%s (%s commands)\t\t1\n' "$tag" "$tag" "$CMD_COUNT" >> "$ITEMS_TSV"
     done <<< "$ALL_TAGS"
 
-    SELECTED=$(whiptail --checklist "Select tags to enable:" 20 60 10 "${CHECKLIST_ITEMS[@]}" 3>&1 1>&2 2>&3) || true
+    SELECTED=$("$ALL_DIR/multiselect" --prompt "Select tags to enable:" < "$ITEMS_TSV") || true
 
-    # Parse whiptail output (quoted, space-separated)
     SELECTED_TAGS=()
-    for tag in $SELECTED; do
-        tag="${tag//\"/}"
-        SELECTED_TAGS+=("$tag")
-    done
+    while IFS= read -r tag; do
+        [[ -n "$tag" ]] && SELECTED_TAGS+=("$tag")
+    done <<< "$SELECTED"
 
     # Ensure bin-admin is always selected
     HAS_BIN_ADMIN=false
