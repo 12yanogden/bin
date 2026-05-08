@@ -1,8 +1,8 @@
-use bin_lib::fmt;
 use bin_lib::git;
 use bin_lib::ticket::extract_ticket;
 use clap::Parser;
-use std::process::{Command, ExitCode};
+use shell_executor::{execute, fail, pass};
+use std::process::ExitCode;
 
 #[derive(Parser)]
 #[command(about = "Git add, commit, and push in one step")]
@@ -11,22 +11,9 @@ struct Cli {
     message: String,
 }
 
-fn run_cmd(cmd: &str, args: &[&str]) -> bool {
-    let label = format!("{} {}", cmd, args.join(" "));
-    match Command::new(cmd).args(args).status() {
-        Ok(s) if s.success() => {
-            fmt::pass(&label);
-            true
-        }
-        Ok(_) => {
-            fmt::fail(&label);
-            false
-        }
-        Err(e) => {
-            fmt::fail(&format!("{}: {}", label, e));
-            false
-        }
-    }
+fn sh_quote(s: &str) -> String {
+    let escaped = s.replace('\'', "'\\''");
+    format!("'{}'", escaped)
 }
 
 fn build_message(message: &str, branch: Option<&str>) -> String {
@@ -42,19 +29,19 @@ fn main() -> ExitCode {
     let repo = match git::open_repo() {
         Ok(r) => r,
         Err(e) => {
-            fmt::fail(&format!("{}", e));
+            fail(&format!("{}", e));
             return ExitCode::FAILURE;
         }
     };
 
     match git::is_dirty(&repo) {
         Ok(false) => {
-            fmt::pass("working tree clean");
+            pass("working tree clean");
             return ExitCode::SUCCESS;
         }
         Ok(true) => {}
         Err(e) => {
-            fmt::fail(&format!("{}", e));
+            fail(&format!("{}", e));
             return ExitCode::FAILURE;
         }
     }
@@ -64,16 +51,15 @@ fn main() -> ExitCode {
         git::current_branch(&repo).ok().as_deref(),
     );
 
-    if !run_cmd("git", &["add", "."]) {
-        return ExitCode::FAILURE;
-    }
+    let commit_cmd = format!("git commit -m {}", sh_quote(&message));
+    let steps = ["git add .", &commit_cmd, "git push"];
 
-    if !run_cmd("git", &["commit", "-m", &message]) {
-        return ExitCode::FAILURE;
-    }
-
-    if !run_cmd("git", &["push"]) {
-        return ExitCode::FAILURE;
+    for cmd in steps {
+        let report = execute(cmd).run_report();
+        if !report.status.is_success() {
+            let code = u8::try_from(report.exit_code).unwrap_or(1);
+            return ExitCode::from(if code == 0 { 1 } else { code });
+        }
     }
 
     ExitCode::SUCCESS
@@ -105,5 +91,20 @@ mod tests {
     fn message_preserves_original_text() {
         let msg = build_message("a \"quoted\" message", Some("BIN-9-rewrite"));
         assert_eq!(msg, "BIN-9 a \"quoted\" message");
+    }
+
+    #[test]
+    fn sh_quote_wraps_plain_text() {
+        assert_eq!(sh_quote("hello world"), "'hello world'");
+    }
+
+    #[test]
+    fn sh_quote_escapes_single_quotes() {
+        assert_eq!(sh_quote("it's fine"), "'it'\\''s fine'");
+    }
+
+    #[test]
+    fn sh_quote_handles_double_quotes_unchanged() {
+        assert_eq!(sh_quote("a \"q\" b"), "'a \"q\" b'");
     }
 }

@@ -210,6 +210,7 @@ version = "0.3.1"
 dependencies = [
  "bin-lib",
  "clap",
+ "shell-executor",
 ]
 
 [[package]]
@@ -300,6 +301,7 @@ version = "0.3.1"
 dependencies = [
  "bin-lib",
  "clap",
+ "shell-executor",
 ]
 
 [[package]]
@@ -1489,6 +1491,15 @@ dependencies = [
  "serde",
  "serde_core",
  "zmij",
+]
+
+[[package]]
+name = "shell-executor"
+version = "0.2.0"
+source = "git+ssh://git@github.com/Artemis-Cooperative/shell-executor.git?tag=v0.2.0#caa6d3bd27ca1032a21320d992e15d2f6f1dcba3"
+dependencies = [
+ "chrono",
+ "clap",
 ]
 
 [[package]]

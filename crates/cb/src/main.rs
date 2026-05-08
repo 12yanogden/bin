@@ -1,6 +1,7 @@
-use bin_lib::{branch, fmt, menu};
+use bin_lib::{branch, menu};
 use clap::Parser;
-use std::process::{Command, ExitCode};
+use shell_executor::{execute, fail};
+use std::process::ExitCode;
 
 #[derive(Parser)]
 #[command(about = "Interactive fuzzy branch checkout")]
@@ -9,67 +10,81 @@ struct Cli {
     pattern: String,
 }
 
-fn git_fetch() -> Result<(), String> {
-    let output = Command::new("git")
-        .args(["fetch"])
-        .output()
-        .map_err(|e| format!("failed to run git fetch: {}", e))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(())
+fn sh_quote(s: &str) -> String {
+    let escaped = s.replace('\'', "'\\''");
+    format!("'{}'", escaped)
 }
 
-fn git_checkout(branch: &str) -> Result<(), String> {
-    let output = Command::new("git")
-        .args(["checkout", branch])
-        .output()
-        .map_err(|e| format!("failed to run git checkout: {}", e))?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(())
+fn exit_code_from_report(exit_code: i32) -> ExitCode {
+    let code = u8::try_from(exit_code).unwrap_or(1);
+    ExitCode::from(if code == 0 { 1 } else { code })
 }
 
-fn run() -> Result<String, String> {
+fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    // Search for matching branches
-    let mut matches = branch::search_branches(&cli.pattern)?;
+    let mut matches = match branch::search_branches(&cli.pattern) {
+        Ok(m) => m,
+        Err(e) => {
+            fail(&e);
+            return ExitCode::from(1);
+        }
+    };
 
-    // If no matches, fetch and retry
     if matches.is_empty() {
-        git_fetch()?;
-        matches = branch::search_branches(&cli.pattern)?;
+        let report = execute("git fetch").run_report();
+        if !report.status.is_success() {
+            return exit_code_from_report(report.exit_code);
+        }
+
+        matches = match branch::search_branches(&cli.pattern) {
+            Ok(m) => m,
+            Err(e) => {
+                fail(&e);
+                return ExitCode::from(1);
+            }
+        };
 
         if matches.is_empty() {
-            return Err(format!("no branches match the pattern: '{}'", cli.pattern));
+            fail(&format!("no branches match the pattern: '{}'", cli.pattern));
+            return ExitCode::from(1);
         }
     }
 
-    // Select branch
     let branch = if matches.len() == 1 {
         matches.into_iter().next().unwrap()
     } else {
         eprintln!("Multiple branches match the pattern: '{}'", cli.pattern);
-        menu::prompt_menu(&matches)?
+        match menu::prompt_menu(&matches) {
+            Ok(b) => b,
+            Err(e) => {
+                fail(&e);
+                return ExitCode::from(1);
+            }
+        }
     };
 
-    // Checkout
-    git_checkout(&branch)?;
+    let cmd = format!("git checkout {}", sh_quote(&branch));
+    let label = format!("Checked out {}", branch);
+    let report = execute(&cmd).message(&label).run_report();
+    if !report.status.is_success() {
+        return exit_code_from_report(report.exit_code);
+    }
 
-    Ok(branch)
+    ExitCode::SUCCESS
 }
 
-fn main() -> ExitCode {
-    match run() {
-        Ok(branch) => {
-            fmt::pass(&format!("Checked out {}", branch));
-            ExitCode::SUCCESS
-        }
-        Err(e) => {
-            fmt::fail(&e);
-            ExitCode::from(1)
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sh_quote_wraps_plain_text() {
+        assert_eq!(sh_quote("main"), "'main'");
+    }
+
+    #[test]
+    fn sh_quote_escapes_single_quotes() {
+        assert_eq!(sh_quote("feat/it's-broken"), "'feat/it'\\''s-broken'");
     }
 }
