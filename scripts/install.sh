@@ -196,14 +196,8 @@ mkdir -p "$(dirname "$SHELL_RC")"
 printf '\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
 echo "Added $INSTALL_DIR/enabled to PATH in $SHELL_RC"
 
-# Tag selection
-ALL_TAGS=$(python3 -c "
-import json
-with open('$INSTALL_DIR/tags.json') as f:
-    tags = json.load(f)
-for tag in sorted(tags.keys()):
-    print(tag)
-")
+# Command selection
+SELECTED_CMDS=()
 
 if [[ "$NON_INTERACTIVE" == "true" ]]; then
     # Ensure bin-admin is always included
@@ -217,37 +211,64 @@ if [[ "$NON_INTERACTIVE" == "true" ]]; then
     if [[ "$HAS_BIN_ADMIN" == "false" ]]; then
         SELECTED_TAGS+=("bin-admin")
     fi
+
+    # Resolve selected tags to a deduped list of commands
+    TAGS_INPUT=$(printf '%s\n' "${SELECTED_TAGS[@]}")
+    while IFS= read -r cmd; do
+        [[ -n "$cmd" ]] && SELECTED_CMDS+=("$cmd")
+    done < <(python3 -c "
+import json, sys
+with open('$INSTALL_DIR/tags.json') as f:
+    tags = json.load(f)
+selected = [t for t in sys.stdin.read().splitlines() if t]
+seen = set()
+for tag in selected:
+    for cmd in tags.get(tag, []):
+        if cmd not in seen:
+            seen.add(cmd)
+            print(cmd)
+" <<< "$TAGS_INPUT")
 else
     ITEMS_TSV="$TMPDIR/items.tsv"
-    : > "$ITEMS_TSV"
-    while IFS= read -r tag; do
-        CMD_COUNT=$(python3 -c "
+    python3 - "$INSTALL_DIR/tags.json" > "$ITEMS_TSV" <<'PY'
+import json, sys
+with open(sys.argv[1]) as f:
+    tags = json.load(f)
+seen = set()
+for tag in sorted(tags.keys()):
+    cmds = [c for c in tags[tag] if c not in seen]
+    if not cmds:
+        continue
+    print(f"{tag}\t{tag}\t\t1")
+    for cmd in cmds:
+        seen.add(cmd)
+        print(f"{cmd}\t{cmd}\t{tag}\t1")
+PY
+
+    SELECTED=$("$ALL_DIR/multiselect" --prompt "Select commands to enable:" < "$ITEMS_TSV") || true
+
+    while IFS= read -r cmd; do
+        [[ -n "$cmd" ]] && SELECTED_CMDS+=("$cmd")
+    done <<< "$SELECTED"
+
+    # Ensure bin-admin commands are always included
+    while IFS= read -r cmd; do
+        [[ -z "$cmd" ]] && continue
+        FOUND=false
+        for s in "${SELECTED_CMDS[@]:-}"; do
+            if [[ "$s" == "$cmd" ]]; then
+                FOUND=true
+                break
+            fi
+        done
+        [[ "$FOUND" == "false" ]] && SELECTED_CMDS+=("$cmd")
+    done < <(python3 -c "
 import json
 with open('$INSTALL_DIR/tags.json') as f:
     tags = json.load(f)
-print(len(tags.get('$tag', [])))
+for cmd in tags.get('bin-admin', []):
+    print(cmd)
 ")
-        printf '%s\t%s (%s commands)\t\t1\n' "$tag" "$tag" "$CMD_COUNT" >> "$ITEMS_TSV"
-    done <<< "$ALL_TAGS"
-
-    SELECTED=$("$ALL_DIR/multiselect" --prompt "Select tags to enable:" < "$ITEMS_TSV") || true
-
-    SELECTED_TAGS=()
-    while IFS= read -r tag; do
-        [[ -n "$tag" ]] && SELECTED_TAGS+=("$tag")
-    done <<< "$SELECTED"
-
-    # Ensure bin-admin is always selected
-    HAS_BIN_ADMIN=false
-    for tag in "${SELECTED_TAGS[@]}"; do
-        if [[ "$tag" == "bin-admin" ]]; then
-            HAS_BIN_ADMIN=true
-            break
-        fi
-    done
-    if [[ "$HAS_BIN_ADMIN" == "false" ]]; then
-        SELECTED_TAGS+=("bin-admin")
-    fi
 fi
 
 # Remove existing symlinks from enabled/ (preserves regular files)
@@ -263,32 +284,13 @@ if [[ "$STALE_COUNT" -gt 0 ]]; then
     echo "Cleared $STALE_COUNT existing symlinks from enabled/"
 fi
 
-# Create symlinks in enabled/ for selected tag commands
-while IFS= read -r tag; do
-    IS_SELECTED=false
-    for selected in "${SELECTED_TAGS[@]}"; do
-        if [[ "$tag" == "$selected" ]]; then
-            IS_SELECTED=true
-            break
-        fi
-    done
-
-    if [[ "$IS_SELECTED" == "true" ]]; then
-        CMDS=$(python3 -c "
-import json
-with open('$INSTALL_DIR/tags.json') as f:
-    tags = json.load(f)
-for cmd in tags.get('$tag', []):
-    print(cmd)
-")
-        while IFS= read -r cmd; do
-            if [[ -n "$cmd" && -f "$ALL_DIR/$cmd" && ! -L "$ENABLED_DIR/$cmd" ]]; then
-                ln -s "$ALL_DIR/$cmd" "$ENABLED_DIR/$cmd"
-                echo "  Enabled: $cmd (tag: $tag)"
-            fi
-        done <<< "$CMDS"
+# Create symlinks in enabled/ for selected commands
+for cmd in "${SELECTED_CMDS[@]:-}"; do
+    if [[ -n "$cmd" && -f "$ALL_DIR/$cmd" && ! -L "$ENABLED_DIR/$cmd" ]]; then
+        ln -s "$ALL_DIR/$cmd" "$ENABLED_DIR/$cmd"
+        echo "  Enabled: $cmd"
     fi
-done <<< "$ALL_TAGS"
+done
 
 # Print failure summary if any binaries failed
 if [[ ${#FAILED_BINARIES[@]} -gt 0 ]]; then
