@@ -11,7 +11,7 @@ Usage: install.sh [OPTIONS]
 Download and install binaries from the latest release.
 
 Options:
-    --dir <path>            Set install directory (default: \$HOME/.bin or \$BIN_INSTALL_DIR)
+    --dir <path>            Set install directory (default: \$HOME/.bin or \$BIN_install_dir)
     --tags <tag1,tag2,...>   Install specific tags non-interactively
     -h, --help              Show this help message
 
@@ -25,12 +25,12 @@ parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --dir)
-                INSTALL_DIR="$2"
+                install_dir="$2"
                 shift 2
                 ;;
             --tags)
-                NON_INTERACTIVE=true
-                IFS=',' read -ra SELECTED_TAGS <<< "$2"
+                non_interactive=true
+                IFS=',' read -ra selected_tags <<< "$2"
                 shift 2
                 ;;
             --help|-h)
@@ -42,8 +42,8 @@ parse_args() {
                 ;;
         esac
     done
-    ENABLED_DIR="$INSTALL_DIR/enabled"
-    ALL_DIR="$INSTALL_DIR/all"
+    enabled_dir="$install_dir/enabled"
+    all_dir="$install_dir/all"
 }
 
 check_dependencies() {
@@ -59,56 +59,56 @@ detect_target() {
     arch="$(uname -m)"
 
     case "${os}-${arch}" in
-        Darwin-arm64|Darwin-aarch64) TARGET="aarch64-apple-darwin" ;;
-        Darwin-x86_64)               TARGET="x86_64-apple-darwin" ;;
-        Linux-x86_64)                TARGET="x86_64-unknown-linux-gnu" ;;
-        Linux-aarch64)               TARGET="aarch64-unknown-linux-gnu" ;;
+        Darwin-arm64|Darwin-aarch64) target="aarch64-apple-darwin" ;;
+        Darwin-x86_64)               target="x86_64-apple-darwin" ;;
+        Linux-x86_64)                target="x86_64-unknown-linux-gnu" ;;
+        Linux-aarch64)               target="aarch64-unknown-linux-gnu" ;;
         *)
             echo "Unsupported platform: ${os}-${arch}" >&2
             exit 1
             ;;
     esac
 
-    echo "Detected platform: ${TARGET}"
+    echo "Detected platform: ${target}"
 }
 
 fetch_latest_tag() {
     echo "Fetching latest release..."
-    LATEST_TAG=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+    latest_tag=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
 
-    if [[ -z "$LATEST_TAG" ]]; then
+    if [[ -z "$latest_tag" ]]; then
         echo "Failed to determine latest release tag" >&2
         exit 1
     fi
 
-    echo "Latest release: ${LATEST_TAG}"
+    echo "Latest release: ${latest_tag}"
 }
 
 setup_tmpdir() {
-    TMPDIR="$(mktemp -d)"
-    # Expand TMPDIR at trap-set time so cleanup works after main() returns
-    trap "rm -rf '$TMPDIR'" EXIT
+    tmpdir="$(mktemp -d)"
+    # Expand tmpdir at trap-set time so cleanup works after main() returns
+    trap "rm -rf '$tmpdir'" EXIT
 }
 
 download_tags_json() {
-    local url="https://github.com/$REPO/releases/download/$LATEST_TAG/tags.json"
+    local url="https://github.com/$REPO/releases/download/$latest_tag/tags.json"
 
     echo "Downloading tags.json..."
-    curl -sL -o "$TMPDIR/tags.json" "$url"
-    if [[ ! -s "$TMPDIR/tags.json" ]]; then
+    curl -sL -o "$tmpdir/tags.json" "$url"
+    if [[ ! -s "$tmpdir/tags.json" ]]; then
         echo "Failed to download tags.json" >&2
         exit 1
     fi
 }
 
 download_binaries() {
-    mkdir -p "$ALL_DIR"
-    mkdir -p "$ENABLED_DIR"
+    mkdir -p "$all_dir"
+    mkdir -p "$enabled_dir"
 
     local binaries
     binaries=$(python3 -c "
 import json
-with open('$TMPDIR/tags.json') as f:
+with open('$tmpdir/tags.json') as f:
     tags = json.load(f)
 seen = set()
 for cmds in tags.values():
@@ -120,45 +120,45 @@ for cmds in tags.values():
 
     local binary archive_name download_url extracted_bin
     while IFS= read -r binary; do
-        archive_name="${binary}-${TARGET}.tar.xz"
-        download_url="https://github.com/$REPO/releases/download/$LATEST_TAG/$archive_name"
+        archive_name="${binary}-${target}.tar.xz"
+        download_url="https://github.com/$REPO/releases/download/$latest_tag/$archive_name"
 
         echo "Downloading ${archive_name}..."
-        if ! curl -sfL -o "$TMPDIR/$archive_name" "$download_url"; then
+        if ! curl -sfL -o "$tmpdir/$archive_name" "$download_url"; then
             echo "  Warning: Failed to download ${archive_name}, skipping" >&2
-            FAILED_BINARIES+=("$binary")
+            failed_binaries+=("$binary")
             continue
         fi
 
-        if [[ ! -s "$TMPDIR/$archive_name" ]]; then
+        if [[ ! -s "$tmpdir/$archive_name" ]]; then
             echo "  Warning: Downloaded empty archive for ${binary}, skipping" >&2
-            FAILED_BINARIES+=("$binary")
+            failed_binaries+=("$binary")
             continue
         fi
 
-        tar -xf "$TMPDIR/$archive_name" -C "$TMPDIR"
+        tar -xf "$tmpdir/$archive_name" -C "$tmpdir"
 
         # cargo-dist extracts into {binary}-{target}/
-        extracted_bin="$TMPDIR/${binary}-${TARGET}/${binary}"
+        extracted_bin="$tmpdir/${binary}-${target}/${binary}"
         if [[ -f "$extracted_bin" ]]; then
-            cp "$extracted_bin" "$ALL_DIR/"
+            cp "$extracted_bin" "$all_dir/"
         else
             echo "  Warning: Binary '${binary}' not found after extraction, skipping" >&2
-            FAILED_BINARIES+=("$binary")
+            failed_binaries+=("$binary")
             continue
         fi
     done <<< "$binaries"
 
-    chmod +x "$ALL_DIR"/*
+    chmod +x "$all_dir"/*
 }
 
 ensure_multiselect_available() {
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+    if [[ "$non_interactive" == "true" ]]; then
         return
     fi
 
     local failed
-    for failed in "${FAILED_BINARIES[@]:-}"; do
+    for failed in "${failed_binaries[@]:-}"; do
         if [[ "$failed" == "multiselect" ]]; then
             echo "Error: multiselect binary failed to download — required for interactive tag selection" >&2
             echo "Use --tags to specify tags non-interactively" >&2
@@ -168,46 +168,46 @@ ensure_multiselect_available() {
 }
 
 install_tags_json() {
-    cp "$TMPDIR/tags.json" "$INSTALL_DIR/tags.json"
+    cp "$tmpdir/tags.json" "$install_dir/tags.json"
 }
 
 setup_shell_path() {
     case "$SHELL" in
         */zsh)
-            SHELL_RC="$HOME/.zshrc"
-            PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+            shell_rc="$HOME/.zshrc"
+            path_line="export PATH=\"$install_dir/enabled:\$PATH\" $MARKER"
             ;;
         */bash)
-            SHELL_RC="$HOME/.bashrc"
-            PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
+            shell_rc="$HOME/.bashrc"
+            path_line="export PATH=\"$install_dir/enabled:\$PATH\" $MARKER"
             ;;
         */fish)
-            SHELL_RC="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
-            PATH_LINE="set -gx PATH $INSTALL_DIR/enabled \$PATH $MARKER"
+            shell_rc="${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish"
+            path_line="set -gx PATH $install_dir/enabled \$PATH $MARKER"
             ;;
         *)
-            SHELL_RC="$HOME/.profile"
-            PATH_LINE="export PATH=\"$INSTALL_DIR/enabled:\$PATH\" $MARKER"
-            echo "Warning: Unrecognized shell '$SHELL', falling back to $SHELL_RC" >&2
+            shell_rc="$HOME/.profile"
+            path_line="export PATH=\"$install_dir/enabled:\$PATH\" $MARKER"
+            echo "Warning: Unrecognized shell '$SHELL', falling back to $shell_rc" >&2
             ;;
     esac
 
-    if [[ -f "$SHELL_RC" ]]; then
+    if [[ -f "$shell_rc" ]]; then
         local tmp_rc
         tmp_rc="$(mktemp)"
-        grep -v "$MARKER" "$SHELL_RC" > "$tmp_rc" || true
-        mv "$tmp_rc" "$SHELL_RC"
+        grep -v "$MARKER" "$shell_rc" > "$tmp_rc" || true
+        mv "$tmp_rc" "$shell_rc"
     fi
 
     # Ensure parent directory exists (needed for fish config)
-    mkdir -p "$(dirname "$SHELL_RC")"
+    mkdir -p "$(dirname "$shell_rc")"
 
-    printf '\n%s\n' "$PATH_LINE" >> "$SHELL_RC"
-    echo "Added $INSTALL_DIR/enabled to PATH in $SHELL_RC"
+    printf '\n%s\n' "$path_line" >> "$shell_rc"
+    echo "Added $install_dir/enabled to PATH in $shell_rc"
 }
 
 select_commands() {
-    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+    if [[ "$non_interactive" == "true" ]]; then
         select_commands_from_tags
     else
         select_commands_interactive
@@ -217,24 +217,24 @@ select_commands() {
 select_commands_from_tags() {
     # Ensure bin-admin is always included
     local has_bin_admin=false tag
-    for tag in "${SELECTED_TAGS[@]}"; do
+    for tag in "${selected_tags[@]}"; do
         if [[ "$tag" == "bin-admin" ]]; then
             has_bin_admin=true
             break
         fi
     done
     if [[ "$has_bin_admin" == "false" ]]; then
-        SELECTED_TAGS+=("bin-admin")
+        selected_tags+=("bin-admin")
     fi
 
     # Resolve selected tags to a deduped list of commands
     local tags_input cmd
-    tags_input=$(printf '%s\n' "${SELECTED_TAGS[@]}")
+    tags_input=$(printf '%s\n' "${selected_tags[@]}")
     while IFS= read -r cmd; do
-        [[ -n "$cmd" ]] && SELECTED_CMDS+=("$cmd")
+        [[ -n "$cmd" ]] && selected_cmds+=("$cmd")
     done < <(python3 -c "
 import json, sys
-with open('$INSTALL_DIR/tags.json') as f:
+with open('$install_dir/tags.json') as f:
     tags = json.load(f)
 selected = [t for t in sys.stdin.read().splitlines() if t]
 seen = set()
@@ -247,8 +247,8 @@ for tag in selected:
 }
 
 select_commands_interactive() {
-    local items_tsv="$TMPDIR/items.tsv"
-    python3 - "$INSTALL_DIR/tags.json" > "$items_tsv" <<'PY'
+    local items_tsv="$tmpdir/items.tsv"
+    python3 - "$install_dir/tags.json" > "$items_tsv" <<'PY'
 import json, sys
 with open(sys.argv[1]) as f:
     tags = json.load(f)
@@ -264,11 +264,11 @@ for tag in sorted(tags.keys()):
 PY
 
     local selected
-    selected=$("$ALL_DIR/multiselect" --prompt "Select commands to enable:" < "$items_tsv") || true
+    selected=$("$all_dir/multiselect" --prompt "Select commands to enable:" < "$items_tsv") || true
 
     local cmd
     while IFS= read -r cmd; do
-        [[ -n "$cmd" ]] && SELECTED_CMDS+=("$cmd")
+        [[ -n "$cmd" ]] && selected_cmds+=("$cmd")
     done <<< "$selected"
 
     # Ensure bin-admin commands are always included
@@ -276,16 +276,16 @@ PY
     while IFS= read -r cmd; do
         [[ -z "$cmd" ]] && continue
         found=false
-        for s in "${SELECTED_CMDS[@]:-}"; do
+        for s in "${selected_cmds[@]:-}"; do
             if [[ "$s" == "$cmd" ]]; then
                 found=true
                 break
             fi
         done
-        [[ "$found" == "false" ]] && SELECTED_CMDS+=("$cmd")
+        [[ "$found" == "false" ]] && selected_cmds+=("$cmd")
     done < <(python3 -c "
 import json
-with open('$INSTALL_DIR/tags.json') as f:
+with open('$install_dir/tags.json') as f:
     tags = json.load(f)
 for cmd in tags.get('bin-admin', []):
     print(cmd)
@@ -295,7 +295,7 @@ for cmd in tags.get('bin-admin', []):
 refresh_enabled_symlinks() {
     # Remove existing symlinks from enabled/ (preserves regular files)
     local stale_count=0 f
-    for f in "$ENABLED_DIR"/*; do
+    for f in "$enabled_dir"/*; do
         if [[ -L "$f" ]]; then
             rm "$f"
             stale_count=$((stale_count + 1))
@@ -308,46 +308,46 @@ refresh_enabled_symlinks() {
 
     # Create symlinks in enabled/ for selected commands
     local cmd
-    for cmd in "${SELECTED_CMDS[@]:-}"; do
-        if [[ -n "$cmd" && -f "$ALL_DIR/$cmd" && ! -L "$ENABLED_DIR/$cmd" ]]; then
-            ln -s "$ALL_DIR/$cmd" "$ENABLED_DIR/$cmd"
+    for cmd in "${selected_cmds[@]:-}"; do
+        if [[ -n "$cmd" && -f "$all_dir/$cmd" && ! -L "$enabled_dir/$cmd" ]]; then
+            ln -s "$all_dir/$cmd" "$enabled_dir/$cmd"
             echo "  Enabled: $cmd"
         fi
     done
 }
 
 print_summary() {
-    if [[ ${#FAILED_BINARIES[@]} -gt 0 ]]; then
+    if [[ ${#failed_binaries[@]} -gt 0 ]]; then
         echo ""
         echo "Warning: The following binaries failed to install:"
         local binary
-        for binary in "${FAILED_BINARIES[@]}"; do
+        for binary in "${failed_binaries[@]}"; do
             echo "  - $binary"
         done
     fi
 
     echo ""
     echo "Installation complete!"
-    echo "  Binary directory:   $ALL_DIR"
-    echo "  Enabled directory:  $ENABLED_DIR"
+    echo "  Binary directory:   $all_dir"
+    echo "  Enabled directory:  $enabled_dir"
     echo ""
-    echo "Restart your shell or run: source $SHELL_RC"
+    echo "Restart your shell or run: source $shell_rc"
 }
 
 main() {
     # Shared state — locals in main() are visible to helpers via dynamic scope
-    local INSTALL_DIR="${BIN_INSTALL_DIR:-$HOME/.bin}"
-    local ENABLED_DIR=""
-    local ALL_DIR=""
-    local NON_INTERACTIVE=false
-    local SELECTED_TAGS=()
-    local SELECTED_CMDS=()
-    local FAILED_BINARIES=()
-    local TMPDIR=""
-    local TARGET=""
-    local LATEST_TAG=""
-    local SHELL_RC=""
-    local PATH_LINE=""
+    local install_dir="${BIN_install_dir:-$HOME/.bin}"
+    local enabled_dir=""
+    local all_dir=""
+    local non_interactive=false
+    local selected_tags=()
+    local selected_cmds=()
+    local failed_binaries=()
+    local tmpdir=""
+    local target=""
+    local latest_tag=""
+    local shell_rc=""
+    local path_line=""
 
     parse_args "$@"
     check_dependencies
