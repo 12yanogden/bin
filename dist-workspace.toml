@@ -12,7 +12,6 @@ targets = [
   "aarch64-apple-darwin",
 ]
 pr-run-mode = "plan"
-host-jobs = ["./smoke-test-install"]
 install-updater = false
 install-path = "CARGO_HOME"
 
