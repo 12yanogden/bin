@@ -7,15 +7,15 @@ This project is a set of binaries and shell scripts that can be installed to enh
 Install pre-built binaries with a single command:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/12yanogden/bin/releases/latest/download/install.sh | sh
+bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)"
 ```
 
 The installer presents an interactive tag selector for choosing which commands to enable.
 
-For non-interactive or scripted installs, use the `--tags` flag:
+For non-interactive or scripted installs, pass `--tags`:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/12yanogden/bin/releases/latest/download/install.sh | sh -s -- --tags git,shell
+bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)" -- --tags git,shell
 ```
 
 ### Development
