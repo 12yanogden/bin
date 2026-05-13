@@ -6,8 +6,4 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-crossterm = { workspace = true, features = ["use-dev-tty"] }
-
-[dev-dependencies]
-expectrl = "0.7"
-tempfile = "3"
+multiselect-cli.workspace = true
