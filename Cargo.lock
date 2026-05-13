@@ -1495,8 +1495,8 @@ dependencies = [
 
 [[package]]
 name = "shell-executor"
-version = "0.2.0"
-source = "git+ssh://git@github.com/Artemis-Cooperative/shell-executor.git?tag=v0.2.0#caa6d3bd27ca1032a21320d992e15d2f6f1dcba3"
+version = "0.2.1"
+source = "git+ssh://git@github.com/Artemis-Cooperative/shell-executor.git?tag=v0.2.1#9b109108eb734f7e18b8255500d45c77a5d6d7b2"
 dependencies = [
  "chrono",
  "clap",
@@ -2179,8 +2179,7 @@ checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
 name = "x"
 version = "0.3.1"
 dependencies = [
- "bin-lib",
- "clap",
+ "shell-executor",
 ]
 
 [[package]]

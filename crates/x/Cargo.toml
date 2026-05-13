@@ -6,5 +6,4 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
-bin-lib.workspace = true
-clap.workspace = true
+shell-executor.workspace = true
