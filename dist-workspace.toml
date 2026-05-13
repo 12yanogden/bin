@@ -17,9 +17,5 @@ install-updater = false
 install-path = "CARGO_HOME"
 
 [[dist.extra-artifacts]]
-artifacts = ["tags.json"]
-build = ["true"]
-
-[[dist.extra-artifacts]]
 artifacts = ["install.sh"]
 build = ["cp", "scripts/install.sh", "install.sh"]

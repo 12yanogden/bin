@@ -10,12 +10,20 @@ Install pre-built binaries with a single command:
 bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)"
 ```
 
-The installer presents an interactive tag selector for choosing which commands to enable.
+By default, binaries are installed into `/usr/local/bin` so they are immediately
+available on PATH without any shell config changes. Override with `--dir <path>`
+or the `BIN_install_dir` environment variable. The installer uses `sudo` if the
+target directory is not writable by the current user.
 
-For non-interactive or scripted installs, pass `--tags`:
+To enable or disable specific commands, download `install.sh` first, edit the
+`COMMANDS` array at the top of the file, and then run it:
 
 ```bash
-bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)" -- --tags git,shell
+curl --proto '=https' --tlsv1.2 -fsSL \
+    https://github.com/12yanogden/bin/releases/latest/download/install.sh \
+    -o install.sh
+$EDITOR install.sh   # toggle each command between =true and =false
+bash install.sh
 ```
 
 ### Development
