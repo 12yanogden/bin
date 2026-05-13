@@ -78,7 +78,7 @@ checksum = "5f0e0fee31ef5ed1ba1316088939cea399010ed7731dba877ed44aeb407a75ea"
 
 [[package]]
 name = "arr-intersect"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "arr-subtract"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -100,7 +100,7 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "bin-lib"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "git2",
  "regex",
@@ -116,7 +116,7 @@ checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
 name = "bs"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -130,7 +130,7 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
 name = "cb"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -210,7 +210,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cmt"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -310,7 +310,7 @@ dependencies = [
 
 [[package]]
 name = "dot-env"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "clap",
  "tempfile",
@@ -334,7 +334,7 @@ dependencies = [
 
 [[package]]
 name = "fail"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
 ]
@@ -584,7 +584,7 @@ dependencies = [
 
 [[package]]
 name = "is-dirty"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "clap",
@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "is-on-branch"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "regex",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "multiselect"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "multiselect-cli",
 ]
@@ -812,7 +812,7 @@ dependencies = [
 
 [[package]]
 name = "pass"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
 ]
@@ -859,7 +859,7 @@ dependencies = [
 
 [[package]]
 name = "pwb"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "bin-lib",
  "git2",
@@ -1467,7 +1467,7 @@ checksum = "9edde0db4769d2dc68579893f2306b26c6ecfbe0ef499b013d731b7b9247e0b9"
 
 [[package]]
 name = "x"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "shell-executor",
 ]
