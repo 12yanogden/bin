@@ -55,7 +55,7 @@ fn main() -> ExitCode {
     let steps = ["git add .", &commit_cmd, "git push"];
 
     for cmd in steps {
-        let report = execute(cmd).run_report();
+        let report = execute(cmd).quiet().run_report();
         if !report.status.is_success() {
             let code = u8::try_from(report.exit_code).unwrap_or(1);
             return ExitCode::from(if code == 0 { 1 } else { code });
