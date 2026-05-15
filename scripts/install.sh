@@ -10,9 +10,11 @@ readonly REPO="12yanogden/bin"
 COMMANDS=(
     "arr-intersect"
     "arr-subtract"
+    "auto-archive"
     "bs"
     "cb"
     "cmt"
+    "cronx"
     "dot-env"
     "fail"
     "is-dirty"
@@ -182,6 +184,47 @@ prepare_install_dir() {
     fi
 }
 
+# ----------------------------------------------------------------------------
+# Per-command lifecycle hooks
+#
+# Define a function named `post_install_<binary>` (hyphens → underscores) to
+# run a setup step after a successful install, or `pre_uninstall_<binary>` to
+# run a teardown step before removal. Hooks receive no arguments; the binary
+# is available at "$install_dir/<binary>" when they fire.
+# ----------------------------------------------------------------------------
+
+post_install_cronx() {
+    "$install_dir/cronx" --setup
+}
+
+pre_uninstall_cronx() {
+    "$install_dir/cronx" --takedown
+}
+
+run_post_install_hook() {
+    local binary="$1"
+    local fn="post_install_${binary//-/_}"
+    declare -F "$fn" >/dev/null 2>&1 || return 0
+
+    echo "  Running post-install setup for ${binary}..."
+    if ! "$fn"; then
+        echo "  Warning: post-install setup for ${binary} failed" >&2
+        failed_hooks+=("${binary} (post-install)")
+    fi
+}
+
+run_pre_uninstall_hook() {
+    local binary="$1"
+    local fn="pre_uninstall_${binary//-/_}"
+    declare -F "$fn" >/dev/null 2>&1 || return 0
+
+    echo "  Running pre-uninstall teardown for ${binary}..."
+    if ! "$fn"; then
+        echo "  Warning: pre-uninstall teardown for ${binary} failed" >&2
+        failed_hooks+=("${binary} (pre-uninstall)")
+    fi
+}
+
 install_one() {
     local binary="$1"
     local extracted_bin
@@ -195,6 +238,7 @@ install_one() {
 
     $sudo_cmd install -m 0755 "$extracted_bin" "$install_dir/$binary"
     installed_binaries+=("$binary")
+    run_post_install_hook "$binary"
 }
 
 install_binaries() {
@@ -225,6 +269,8 @@ uninstall_one() {
     if [[ ! -e "$path" ]]; then
         return
     fi
+
+    run_pre_uninstall_hook "$binary"
 
     if $sudo_cmd rm -f "$path"; then
         removed_binaries+=("$binary")
@@ -306,6 +352,15 @@ print_summary() {
         done
     fi
 
+    if [[ ${#failed_hooks[@]} -gt 0 ]]; then
+        echo ""
+        echo "Hooks that failed (binary state is otherwise unchanged):"
+        local b
+        for b in "${failed_hooks[@]}"; do
+            echo "  - $b"
+        done
+    fi
+
     if [[ ${bashrc_updated:-0} -eq 1 ]]; then
         echo ""
         echo "Added 'bin' alias to ~/.bashrc. Run 'source ~/.bashrc' or open a new shell to use it."
@@ -335,6 +390,7 @@ main() {
     local removed_binaries=()
     local failed_binaries=()
     local failed_removals=()
+    local failed_hooks=()
     local tmpdir=""
     local target=""
     local latest_tag=""

@@ -1,0 +1,13 @@
+[package]
+name = "auto-archive-bin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "auto-archive"
+path = "src/main.rs"
+
+[dependencies]
+auto-archive.workspace = true

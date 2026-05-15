@@ -1,0 +1,13 @@
+[package]
+name = "cronx-bin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "cronx"
+path = "src/main.rs"
+
+[dependencies]
+cronx.workspace = true
