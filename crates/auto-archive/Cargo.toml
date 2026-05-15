@@ -1,5 +1,5 @@
 [package]
-name = "auto-archive-bin"
+name = "auto-archive"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ name = "auto-archive"
 path = "src/main.rs"
 
 [dependencies]
-auto-archive.workspace = true
+auto-archive-upstream.workspace = true

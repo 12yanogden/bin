@@ -1,3 +1,3 @@
 fn main() {
-    auto_archive::main();
+    auto_archive_upstream::main();
 }

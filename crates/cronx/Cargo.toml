@@ -1,5 +1,5 @@
 [package]
-name = "cronx-bin"
+name = "cronx"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,4 +10,4 @@ name = "cronx"
 path = "src/main.rs"
 
 [dependencies]
-cronx.workspace = true
+cronx-upstream.workspace = true
