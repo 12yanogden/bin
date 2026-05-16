@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly REPO="12yanogden/bin"
+readonly DEFAULT_REPO="12yanogden/bin"
 
 # ----------------------------------------------------------------------------
 # Available commands. The interactive picker pre-selects any already
@@ -24,6 +24,62 @@ COMMANDS=(
     "pwb"
     "x"
 )
+
+# Source-of-truth repository for each binary. Binaries owned by other
+# projects ship their own releases; everything else falls through to bin.
+# Implemented as a case statement because macOS ships bash 3.2, which has
+# no associative arrays.
+repo_for() {
+    case "$1" in
+        multiselect)   printf '%s\n' "Artemis-Cooperative/multiselect-cli" ;;
+        auto-archive)  printf '%s\n' "12yanogden/auto-archive" ;;
+        cronx)         printf '%s\n' "12yanogden/cronx" ;;
+        *)             printf '%s\n' "$DEFAULT_REPO" ;;
+    esac
+}
+
+# cargo-dist names archives by Cargo package name, not binary name. Defaults
+# to the binary name; override here when the source package name differs.
+archive_prefix_for() {
+    case "$1" in
+        multiselect) printf '%s\n' "multiselect-cli" ;;
+        *)           printf '%s\n' "$1" ;;
+    esac
+}
+
+# Per-repo cache of latest release tags. Different source repos are on
+# different version tracks, so there is no single global "latest".
+# Parallel indexed arrays — also a concession to bash 3.2.
+TAG_CACHE_REPOS=()
+TAG_CACHE_TAGS=()
+
+tag_for() {
+    local repo="$1"
+    local i tag
+    if [[ ${#TAG_CACHE_REPOS[@]} -gt 0 ]]; then
+        for i in "${!TAG_CACHE_REPOS[@]}"; do
+            if [[ "${TAG_CACHE_REPOS[$i]}" == "$repo" ]]; then
+                printf '%s\n' "${TAG_CACHE_TAGS[$i]}"
+                return 0
+            fi
+        done
+    fi
+
+    echo "Fetching latest release for ${repo}..." >&2
+    tag=$(curl -sL "https://api.github.com/repos/$repo/releases/latest" \
+        | grep '"tag_name"' \
+        | sed -E 's/.*"([^"]+)".*/\1/')
+
+    if [[ -z "$tag" ]]; then
+        echo "Failed to determine latest release tag for ${repo}" >&2
+        return 1
+    fi
+
+    echo "  Latest release for ${repo}: ${tag}" >&2
+    TAG_CACHE_REPOS+=("$repo")
+    TAG_CACHE_TAGS+=("$tag")
+    printf '%s\n' "$tag"
+}
 
 usage() {
     cat <<EOF
@@ -77,18 +133,6 @@ detect_target() {
     echo "Detected platform: ${target}"
 }
 
-fetch_latest_tag() {
-    echo "Fetching latest release..."
-    latest_tag=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
-
-    if [[ -z "$latest_tag" ]]; then
-        echo "Failed to determine latest release tag" >&2
-        exit 1
-    fi
-
-    echo "Latest release: ${latest_tag}"
-}
-
 setup_tmpdir() {
     tmpdir="$(mktemp -d)"
     trap "rm -rf '$tmpdir'" EXIT
@@ -96,9 +140,17 @@ setup_tmpdir() {
 
 fetch_binary() {
     # Downloads and extracts a release binary into tmpdir, echoing its path.
+    # Routes through repo_for() so each binary is pulled from its own
+    # source repo's latest release.
     local binary="$1"
-    local archive_name="${binary}-${target}.tar.xz"
-    local download_url="https://github.com/$REPO/releases/download/$latest_tag/$archive_name"
+    local repo tag prefix
+    repo="$(repo_for "$binary")"
+    if ! tag="$(tag_for "$repo")"; then
+        return 1
+    fi
+    prefix="$(archive_prefix_for "$binary")"
+    local archive_name="${prefix}-${target}.tar.xz"
+    local download_url="https://github.com/$repo/releases/download/$tag/$archive_name"
 
     if ! curl -sfL -o "$tmpdir/$archive_name" "$download_url"; then
         return 1
@@ -107,7 +159,7 @@ fetch_binary() {
 
     tar -xf "$tmpdir/$archive_name" -C "$tmpdir" || return 1
 
-    local extracted="$tmpdir/${binary}-${target}/${binary}"
+    local extracted="$tmpdir/${prefix}-${target}/${binary}"
     [[ -f "$extracted" ]] || return 1
 
     chmod +x "$extracted"
@@ -117,7 +169,7 @@ fetch_binary() {
 bootstrap_multiselect() {
     echo "Fetching multiselect for interactive picker..."
     if ! multiselect_bin="$(fetch_binary multiselect)"; then
-        echo "Failed to download multiselect from release ${latest_tag}." >&2
+        echo "Failed to download multiselect for the interactive picker." >&2
         exit 1
     fi
 }
@@ -393,14 +445,12 @@ main() {
     local failed_hooks=()
     local tmpdir=""
     local target=""
-    local latest_tag=""
     local sudo_cmd=""
     local multiselect_bin=""
     local bashrc_updated=0
 
     parse_args "$@"
     detect_target
-    fetch_latest_tag
     setup_tmpdir
     bootstrap_multiselect
     pick_commands

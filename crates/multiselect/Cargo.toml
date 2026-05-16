@@ -1,9 +1,0 @@
-[package]
-name = "multiselect"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-repository.workspace = true
-
-[dependencies]
-multiselect-cli.workspace = true
