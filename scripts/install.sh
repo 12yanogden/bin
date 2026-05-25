@@ -32,6 +32,7 @@ COMMANDS=(
 repo_for() {
     case "$1" in
         multiselect)   printf '%s\n' "Artemis-Cooperative/multiselect-cli" ;;
+        x)             printf '%s\n' "Artemis-Cooperative/shell-executor" ;;
         auto-archive)  printf '%s\n' "12yanogden/auto-archive" ;;
         cronx)         printf '%s\n' "12yanogden/cronx" ;;
         *)             printf '%s\n' "$DEFAULT_REPO" ;;
@@ -43,6 +44,7 @@ repo_for() {
 archive_prefix_for() {
     case "$1" in
         multiselect) printf '%s\n' "multiselect-cli" ;;
+        x)           printf '%s\n' "shell-executor" ;;
         *)           printf '%s\n' "$1" ;;
     esac
 }
@@ -174,6 +176,17 @@ bootstrap_multiselect() {
     fi
 }
 
+bootstrap_x() {
+    # x (shell-executor) is the wrapper used to keep subsequent commands'
+    # output out of stdout on success. Has to be fetched raw — it cannot
+    # wrap its own download.
+    echo "Fetching x for command wrapping..."
+    if ! x_bin="$(fetch_binary x)"; then
+        echo "Failed to download x for command wrapping." >&2
+        exit 1
+    fi
+}
+
 pick_commands() {
     local name selected tsv=""
     for name in "${COMMANDS[@]}"; do
@@ -253,49 +266,53 @@ pre_uninstall_cronx() {
     "$install_dir/cronx" --takedown
 }
 
-run_post_install_hook() {
-    local binary="$1"
-    local fn="post_install_${binary//-/_}"
-    declare -F "$fn" >/dev/null 2>&1 || return 0
-
-    echo "  Running post-install setup for ${binary}..."
-    if ! "$fn"; then
-        echo "  Warning: post-install setup for ${binary} failed" >&2
-        failed_hooks+=("${binary} (post-install)")
-    fi
+run_hook() {
+    # Runs a single hook function under x so its output only surfaces on
+    # failure. The hook function itself is a shell function in this script;
+    # `bash -c "$fn"` works because we export the function below.
+    local kind="$1" binary="$2" fn="$3"
+    "$x_bin" --quiet --msg "${kind} ${binary}" "bash -c '$fn'" \
+        || failed_hooks+=("${binary} (${kind})")
 }
 
-run_pre_uninstall_hook() {
-    local binary="$1"
-    local fn="pre_uninstall_${binary//-/_}"
-    declare -F "$fn" >/dev/null 2>&1 || return 0
-
-    echo "  Running pre-uninstall teardown for ${binary}..."
-    if ! "$fn"; then
-        echo "  Warning: pre-uninstall teardown for ${binary} failed" >&2
-        failed_hooks+=("${binary} (pre-uninstall)")
-    fi
+run_pre_uninstall_hooks() {
+    local binary fn
+    (( ${#cmds_to_remove[@]} > 0 )) || return 0
+    export install_dir sudo_cmd
+    for binary in "${cmds_to_remove[@]}"; do
+        fn="pre_uninstall_${binary//-/_}"
+        declare -F "$fn" >/dev/null 2>&1 || continue
+        export -f "$fn"
+        run_hook "pre-uninstall" "$binary" "$fn"
+    done
 }
 
-install_one() {
-    local binary="$1"
-    local extracted_bin
-
-    echo "Downloading ${binary}-${target}.tar.xz..."
-    if ! extracted_bin="$(fetch_binary "$binary")"; then
-        echo "  Warning: Failed to fetch ${binary}, skipping" >&2
-        failed_binaries+=("$binary")
-        return
-    fi
-
-    $sudo_cmd install -m 0755 "$extracted_bin" "$install_dir/$binary"
-    installed_binaries+=("$binary")
-    run_post_install_hook "$binary"
+run_post_install_hooks() {
+    local binary fn
+    (( ${#installed_binaries[@]} > 0 )) || return 0
+    export install_dir sudo_cmd
+    for binary in "${installed_binaries[@]}"; do
+        fn="post_install_${binary//-/_}"
+        declare -F "$fn" >/dev/null 2>&1 || continue
+        export -f "$fn"
+        run_hook "post-install" "$binary" "$fn"
+    done
 }
 
 install_binaries() {
+    # Phases:
+    #   1. Partition enabled_cmds into already-installed (skipped) vs to_install.
+    #   2. Resolve release tags serially in the parent so the tag cache is
+    #      warm and the API isn't hit concurrently by parallel children.
+    #   3. Prime sudo so parallel children don't trip a hidden password prompt.
+    #   4. Spawn one x --parallel child per binary running the full
+    #      fetch → extract → chmod → install pipeline.
+    #   5. Post-check which files actually landed to populate
+    #      installed_binaries / failed_binaries.
     local binary prev already
     (( ${#enabled_cmds[@]} > 0 )) || return 0
+
+    local to_install=()
     for binary in "${enabled_cmds[@]}"; do
         already=0
         if (( ${#pre_installed_cmds[@]} > 0 )); then
@@ -308,36 +325,83 @@ install_binaries() {
         fi
         if [[ $already -eq 1 ]]; then
             skipped_binaries+=("$binary")
+        else
+            to_install+=("$binary")
+        fi
+    done
+
+    (( ${#to_install[@]} > 0 )) || return 0
+
+    local repo tag prefix archive url extracted
+    local cmds=()
+    for binary in "${to_install[@]}"; do
+        repo="$(repo_for "$binary")"
+        if ! tag="$(tag_for "$repo")"; then
+            failed_binaries+=("$binary")
             continue
         fi
-        install_one "$binary"
+        prefix="$(archive_prefix_for "$binary")"
+        archive="${prefix}-${target}.tar.xz"
+        url="https://github.com/$repo/releases/download/$tag/$archive"
+        extracted="$tmpdir/${prefix}-${target}/${binary}"
+        # Single shell string per child; chained && short-circuits so any
+        # failing step fails the child. -f makes curl exit non-zero on HTTP
+        # errors (instead of saving the error page), -s silences progress,
+        # -L follows redirects.
+        cmds+=("curl -sfL -o '$tmpdir/$archive' '$url' && [ -s '$tmpdir/$archive' ] && tar -xf '$tmpdir/$archive' -C '$tmpdir' && [ -f '$extracted' ] && chmod +x '$extracted' && $sudo_cmd install -m 0755 '$extracted' '$install_dir/$binary'")
     done
-}
 
-uninstall_one() {
-    local binary="$1"
-    local path="$install_dir/$binary"
+    (( ${#cmds[@]} > 0 )) || return 0
 
-    if [[ ! -e "$path" ]]; then
-        return
-    fi
+    [[ -n "$sudo_cmd" ]] && sudo -v
 
-    run_pre_uninstall_hook "$binary"
+    "$x_bin" --msg "Installing ${#cmds[@]} binar$([ ${#cmds[@]} -eq 1 ] && echo y || echo ies)" \
+        --quiet --parallel "${cmds[@]}" || true
 
-    if $sudo_cmd rm -f "$path"; then
-        removed_binaries+=("$binary")
-    else
-        echo "  Warning: Failed to remove $path" >&2
-        failed_removals+=("$binary")
-    fi
+    # Authoritative truth is the filesystem, not x's aggregate exit code.
+    for binary in "${to_install[@]}"; do
+        if [[ -x "$install_dir/$binary" ]]; then
+            installed_binaries+=("$binary")
+        else
+            # Skip if we already recorded the failure during tag resolution.
+            already=0
+            if (( ${#failed_binaries[@]} > 0 )); then
+                for prev in "${failed_binaries[@]}"; do
+                    [[ "$prev" == "$binary" ]] && { already=1; break; }
+                done
+            fi
+            [[ $already -eq 0 ]] && failed_binaries+=("$binary")
+        fi
+    done
 }
 
 uninstall_binaries() {
     local binary
     (( ${#cmds_to_remove[@]} > 0 )) || return 0
+
+    local to_remove=()
     for binary in "${cmds_to_remove[@]}"; do
-        echo "Removing $binary..."
-        uninstall_one "$binary"
+        [[ -e "$install_dir/$binary" ]] && to_remove+=("$binary")
+    done
+
+    (( ${#to_remove[@]} > 0 )) || return 0
+
+    [[ -n "$sudo_cmd" ]] && sudo -v
+
+    local cmds=()
+    for binary in "${to_remove[@]}"; do
+        cmds+=("$sudo_cmd rm -f '$install_dir/$binary'")
+    done
+
+    "$x_bin" --msg "Removing ${#cmds[@]} binar$([ ${#cmds[@]} -eq 1 ] && echo y || echo ies)" \
+        --quiet --parallel "${cmds[@]}" || true
+
+    for binary in "${to_remove[@]}"; do
+        if [[ ! -e "$install_dir/$binary" ]]; then
+            removed_binaries+=("$binary")
+        else
+            failed_removals+=("$binary")
+        fi
     done
 }
 
@@ -447,16 +511,20 @@ main() {
     local target=""
     local sudo_cmd=""
     local multiselect_bin=""
+    local x_bin=""
     local bashrc_updated=0
 
     parse_args "$@"
     detect_target
     setup_tmpdir
     bootstrap_multiselect
+    bootstrap_x
     pick_commands
     prepare_install_dir
-    install_binaries
+    run_pre_uninstall_hooks
     uninstall_binaries
+    install_binaries
+    run_post_install_hooks
     install_bin_alias
     print_summary
 }
