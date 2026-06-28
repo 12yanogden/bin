@@ -36,7 +36,7 @@ repo_for() {
         x)             printf '%s\n' "Artemis-Cooperative/shell-executor" ;;
         auto-archive)  printf '%s\n' "12yanogden/auto-archive" ;;
         cronx)         printf '%s\n' "12yanogden/cronx" ;;
-        umoria)        printf '%s\n' "12yanogden/umoria" ;;
+        umoria)        printf '%s\n' "12yanogden/umoria-rust" ;;
         *)             printf '%s\n' "$DEFAULT_REPO" ;;
     esac
 }
@@ -424,6 +424,27 @@ EOF
     bashrc_updated=1
 }
 
+cleanup_downloaded_script() {
+    # Remove install.sh when it was downloaded to the current directory.
+    # Skip pipe/bash -c invocations, which never write a file to disk.
+    local script="${BASH_SOURCE[0]:-$0}"
+
+    case "$script" in
+        bash|/bin/bash|/usr/bin/bash|/dev/fd/*|/dev/stdin)
+            return 0
+            ;;
+    esac
+
+    [[ "$(basename "$script")" == "install.sh" ]] || return 0
+    [[ -f "$script" ]] || return 0
+
+    local script_dir
+    script_dir="$(cd "$(dirname "$script")" && pwd)"
+    [[ "$script_dir" == "$PWD" ]] || return 0
+
+    rm -f "$script"
+}
+
 print_summary() {
     echo ""
     if [[ ${#installed_binaries[@]} -gt 0 ]]; then
@@ -529,6 +550,7 @@ main() {
     run_post_install_hooks
     install_bin_alias
     print_summary
+    cleanup_downloaded_script
 }
 
 main "$@"
