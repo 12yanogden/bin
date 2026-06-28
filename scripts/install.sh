@@ -408,20 +408,25 @@ uninstall_binaries() {
 }
 
 install_bin_alias() {
-    local bashrc="$HOME/.bashrc"
     local marker="# bin installer alias (12yanogden/bin)"
+    local rc updated=0
 
-    if [[ -f "$bashrc" ]] && grep -Fq "$marker" "$bashrc"; then
-        return 0
-    fi
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        if [[ -f "$rc" ]] && grep -Fq "$marker" "$rc"; then
+            continue
+        fi
 
-    cat >> "$bashrc" <<'EOF'
+        cat >> "$rc" <<'EOF'
 
 # bin installer alias (12yanogden/bin)
 alias bin="bash -c \"\$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)\""
 EOF
 
-    bashrc_updated=1
+        alias_rc_files+=("$rc")
+        updated=1
+    done
+
+    alias_rc_updated=$updated
 }
 
 cleanup_downloaded_script() {
@@ -500,9 +505,14 @@ print_summary() {
         done
     fi
 
-    if [[ ${bashrc_updated:-0} -eq 1 ]]; then
+    if [[ ${alias_rc_updated:-0} -eq 1 ]]; then
         echo ""
-        echo "Added 'bin' alias to ~/.bashrc. Run 'source ~/.bashrc' or open a new shell to use it."
+        echo "Added 'bin' alias to:"
+        local rc
+        for rc in "${alias_rc_files[@]}"; do
+            echo "  - $rc"
+        done
+        echo "Run 'source' on the file for your shell, or open a new terminal to use it."
     fi
 
     echo ""
@@ -535,7 +545,8 @@ main() {
     local sudo_cmd=""
     local multiselect_bin=""
     local x_bin=""
-    local bashrc_updated=0
+    local alias_rc_files=()
+    local alias_rc_updated=0
 
     parse_args "$@"
     detect_target

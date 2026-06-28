@@ -15,14 +15,15 @@ available on PATH without any shell config changes. Override with `--dir <path>`
 or the `BIN_install_dir` environment variable. The installer uses `sudo` if the
 target directory is not writable by the current user.
 
-To enable or disable specific commands, download `install.sh` first, edit the
-`COMMANDS` array at the top of the file, and then run it:
+To limit which commands appear in the interactive picker, download `install.sh`,
+edit the `COMMANDS` array at the top of the file, and run it. The script
+removes itself from the current directory after a successful run:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -fsSL \
     https://github.com/12yanogden/bin/releases/latest/download/install.sh \
     -o install.sh
-$EDITOR install.sh   # toggle each command between =true and =false
+$EDITOR install.sh   # remove entries from COMMANDS to hide them from the picker
 bash install.sh
 ```
 
@@ -77,3 +78,7 @@ Prints the current git branch name.
 ### tkt
 
 Extracts and prints the ticket number from the current git branch name.
+
+### umoria
+
+Launches [Umoria](https://github.com/12yanogden/umoria-rust), a roguelike dungeon crawler. Installed from the [umoria-rust](https://github.com/12yanogden/umoria-rust) release artifacts rather than built from this repo.
