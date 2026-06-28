@@ -22,6 +22,7 @@ COMMANDS=(
     "multiselect"
     "pass"
     "pwb"
+    "umoria"
     "x"
 )
 
@@ -35,6 +36,7 @@ repo_for() {
         x)             printf '%s\n' "Artemis-Cooperative/shell-executor" ;;
         auto-archive)  printf '%s\n' "12yanogden/auto-archive" ;;
         cronx)         printf '%s\n' "12yanogden/cronx" ;;
+        umoria)        printf '%s\n' "12yanogden/umoria" ;;
         *)             printf '%s\n' "$DEFAULT_REPO" ;;
     esac
 }
