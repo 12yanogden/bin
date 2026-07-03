@@ -4,28 +4,18 @@ This project is a set of binaries and shell scripts that can be installed to enh
 
 ## Installation
 
-Install pre-built binaries with a single command:
-
 ```bash
 bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)"
 ```
+
+An interactive picker lets you choose which commands to install (for example
+`bs`, `pwb`, or `umoria`). The `bin` command is always installed so you can
+run it later to reopen the picker and add or remove commands.
 
 By default, binaries are installed into `/usr/local/bin` so they are immediately
 available on PATH without any shell config changes. Override with `--dir <path>`
 or the `BIN_install_dir` environment variable. The installer uses `sudo` if the
 target directory is not writable by the current user.
-
-To limit which commands appear in the interactive picker, download `install.sh`,
-edit the `COMMANDS` array at the top of the file, and run it. The script
-removes itself from the current directory after a successful run:
-
-```bash
-curl --proto '=https' --tlsv1.2 -fsSL \
-    https://github.com/12yanogden/bin/releases/latest/download/install.sh \
-    -o install.sh
-$EDITOR install.sh   # remove entries from COMMANDS to hide them from the picker
-bash install.sh
-```
 
 ### Development
 
@@ -38,6 +28,10 @@ cargo build --release
 ```
 
 ## Commands
+
+### bin
+
+Re-runs the interactive installer to add or remove commands.
 
 ### bs
 
@@ -81,4 +75,4 @@ Extracts and prints the ticket number from the current git branch name.
 
 ### umoria
 
-Launches [Umoria](https://github.com/12yanogden/umoria-rust), a roguelike dungeon crawler. Installed from the [umoria-rust](https://github.com/12yanogden/umoria-rust) release artifacts rather than built from this repo.
+Launches [Umoria](https://github.com/12yanogden/umoria), a roguelike dungeon crawler. Installed from the [umoria](https://github.com/12yanogden/umoria) release artifacts rather than built from this repo.

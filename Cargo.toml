@@ -1,9 +1,9 @@
 [workspace]
-members = ["crates/arr-intersect", "crates/arr-subtract", "crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/dot_env", "crates/fail", "crates/is-dirty", "crates/is-on-branch", "crates/pass", "crates/pwb", "crates/x"]
+members = ["crates/arr-intersect", "crates/arr-subtract", "crates/bin", "crates/bin-lib", "crates/bs", "crates/cb", "crates/cmt", "crates/dot_env", "crates/fail", "crates/is-dirty", "crates/is-on-branch", "crates/pass", "crates/pwb", "crates/x"]
 resolver = "2"
 
 [workspace.package]
-version = "1.4.0"
+version = "1.5.0"
 edition = "2021"
 rust-version = "1.80"
 repository = "https://github.com/12yanogden/bin"

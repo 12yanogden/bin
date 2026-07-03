@@ -36,7 +36,7 @@ repo_for() {
         x)             printf '%s\n' "Artemis-Cooperative/shell-executor" ;;
         auto-archive)  printf '%s\n' "12yanogden/auto-archive" ;;
         cronx)         printf '%s\n' "12yanogden/cronx" ;;
-        umoria)        printf '%s\n' "12yanogden/umoria-rust" ;;
+        umoria)        printf '%s\n' "12yanogden/umoria" ;;
         *)             printf '%s\n' "$DEFAULT_REPO" ;;
     esac
 }
@@ -407,26 +407,20 @@ uninstall_binaries() {
     done
 }
 
-install_bin_alias() {
-    local marker="# bin installer alias (12yanogden/bin)"
-    local rc updated=0
+ensure_bin_command() {
+    # The bin command re-runs this installer; always keep it installed.
+    local name prev found=0 kept=()
 
-    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
-        if [[ -f "$rc" ]] && grep -Fq "$marker" "$rc"; then
-            continue
-        fi
-
-        cat >> "$rc" <<'EOF'
-
-# bin installer alias (12yanogden/bin)
-alias bin="bash -c \"\$(curl --proto '=https' --tlsv1.2 -fsSL https://github.com/12yanogden/bin/releases/latest/download/install.sh)\""
-EOF
-
-        alias_rc_files+=("$rc")
-        updated=1
+    for name in "${enabled_cmds[@]}"; do
+        [[ "$name" == "bin" ]] && found=1
     done
+    [[ $found -eq 1 ]] || enabled_cmds+=("bin")
 
-    alias_rc_updated=$updated
+    for prev in "${cmds_to_remove[@]}"; do
+        [[ "$prev" == "bin" ]] && continue
+        kept+=("$prev")
+    done
+    cmds_to_remove=("${kept[@]}")
 }
 
 cleanup_downloaded_script() {
@@ -505,16 +499,6 @@ print_summary() {
         done
     fi
 
-    if [[ ${alias_rc_updated:-0} -eq 1 ]]; then
-        echo ""
-        echo "Added 'bin' alias to:"
-        local rc
-        for rc in "${alias_rc_files[@]}"; do
-            echo "  - $rc"
-        done
-        echo "Run 'source' on the file for your shell, or open a new terminal to use it."
-    fi
-
     echo ""
     echo "Done."
 
@@ -545,8 +529,6 @@ main() {
     local sudo_cmd=""
     local multiselect_bin=""
     local x_bin=""
-    local alias_rc_files=()
-    local alias_rc_updated=0
 
     parse_args "$@"
     detect_target
@@ -554,12 +536,12 @@ main() {
     bootstrap_multiselect
     bootstrap_x
     pick_commands
+    ensure_bin_command
     prepare_install_dir
     run_pre_uninstall_hooks
     uninstall_binaries
     install_binaries
     run_post_install_hooks
-    install_bin_alias
     print_summary
     cleanup_downloaded_script
 }
