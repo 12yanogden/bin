@@ -87,13 +87,17 @@ tag_for() {
 
 usage() {
     cat <<EOF
-Usage: install.sh [OPTIONS]
+Usage: install.sh [COMMAND] [OPTIONS]
 
 Download and install selected binaries from the latest release into a
 directory already on PATH (default: /usr/local/bin).
 
-An interactive picker is shown; commands already present in the install
-directory are pre-selected.
+Commands:
+    update          Re-download every installed binary to its latest release
+                    (no interactive picker)
+
+With no command, an interactive picker is shown; commands already present
+in the install directory are pre-selected.
 
 Options:
     --dir <path>    Install directory (default: /usr/local/bin or \$BIN_install_dir)
@@ -103,8 +107,13 @@ EOF
 }
 
 parse_args() {
+    UPDATE_MODE=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            update)
+                UPDATE_MODE=1
+                shift
+                ;;
             --dir)
                 install_dir="$2"
                 shift 2
@@ -187,6 +196,15 @@ bootstrap_x() {
         echo "Failed to download x for command wrapping." >&2
         exit 1
     fi
+}
+
+discover_installed_commands() {
+    local name
+    for name in "${COMMANDS[@]}" bin; do
+        if [[ -f "$install_dir/$name" ]]; then
+            enabled_cmds+=("$name")
+        fi
+    done
 }
 
 pick_commands() {
@@ -303,7 +321,8 @@ run_post_install_hooks() {
 
 install_binaries() {
     # Phases:
-    #   1. Partition enabled_cmds into already-installed (skipped) vs to_install.
+    #   1. Partition enabled_cmds into already-installed (skipped) vs to_install,
+    #      unless force=1 (update mode), in which case everything is re-fetched.
     #   2. Resolve release tags serially in the parent so the tag cache is
     #      warm and the API isn't hit concurrently by parallel children.
     #   3. Prime sudo so parallel children don't trip a hidden password prompt.
@@ -311,11 +330,16 @@ install_binaries() {
     #      fetch → extract → chmod → install pipeline.
     #   5. Post-check which files actually landed to populate
     #      installed_binaries / failed_binaries.
+    local force="${1:-0}"
     local binary prev already
     (( ${#enabled_cmds[@]} > 0 )) || return 0
 
     local to_install=()
     for binary in "${enabled_cmds[@]}"; do
+        if [[ "$force" -eq 1 ]]; then
+            to_install+=("$binary")
+            continue
+        fi
         already=0
         if (( ${#pre_installed_cmds[@]} > 0 )); then
             for prev in "${pre_installed_cmds[@]}"; do
@@ -357,7 +381,9 @@ install_binaries() {
 
     [[ -n "$sudo_cmd" ]] && sudo -v
 
-    "$x_bin" --msg "Installing ${#cmds[@]} binar$([ ${#cmds[@]} -eq 1 ] && echo y || echo ies)" \
+    local action="Installing"
+    [[ "$force" -eq 1 ]] && action="Updating"
+    "$x_bin" --msg "${action} ${#cmds[@]} binar$([ ${#cmds[@]} -eq 1 ] && echo y || echo ies)" \
         --quiet --parallel "${cmds[@]}" || true
 
     # Authoritative truth is the filesystem, not x's aggregate exit code.
@@ -447,14 +473,20 @@ cleanup_downloaded_script() {
 print_summary() {
     echo ""
     if [[ ${#installed_binaries[@]} -gt 0 ]]; then
-        echo "Installed to $install_dir:"
+        if [[ "${UPDATE_MODE:-0}" -eq 1 ]]; then
+            echo "Updated in $install_dir:"
+        else
+            echo "Installed to $install_dir:"
+        fi
         local b
         for b in "${installed_binaries[@]}"; do
             echo "  - $b"
         done
     fi
 
-    if [[ ${#skipped_binaries[@]} -gt 0 ]]; then
+    if [[ "${UPDATE_MODE:-0}" -eq 1 ]]; then
+        :
+    elif [[ ${#skipped_binaries[@]} -gt 0 ]]; then
         echo ""
         echo "Already installed (skipped):"
         local b
@@ -474,7 +506,11 @@ print_summary() {
 
     if [[ ${#failed_binaries[@]} -gt 0 ]]; then
         echo ""
-        echo "Failed to install:"
+        if [[ "${UPDATE_MODE:-0}" -eq 1 ]]; then
+            echo "Failed to update:"
+        else
+            echo "Failed to install:"
+        fi
         local b
         for b in "${failed_binaries[@]}"; do
             echo "  - $b"
@@ -515,6 +551,7 @@ print_summary() {
 main() {
     # Shared state — locals in main() are visible to helpers via dynamic scope
     local install_dir="${BIN_install_dir:-/usr/local/bin}"
+    local UPDATE_MODE=0
     local enabled_cmds=()
     local pre_installed_cmds=()
     local cmds_to_remove=()
@@ -533,6 +570,22 @@ main() {
     parse_args "$@"
     detect_target
     setup_tmpdir
+
+    if [[ "$UPDATE_MODE" -eq 1 ]]; then
+        bootstrap_x
+        discover_installed_commands
+        if [[ ${#enabled_cmds[@]} -eq 0 ]]; then
+            echo "No installed binaries found in $install_dir." >&2
+            exit 1
+        fi
+        prepare_install_dir
+        install_binaries 1
+        run_post_install_hooks
+        print_summary
+        cleanup_downloaded_script
+        return 0
+    fi
+
     bootstrap_multiselect
     bootstrap_x
     pick_commands

@@ -78,7 +78,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "arr-intersect"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "arr-subtract"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -100,11 +100,11 @@ checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
 name = "bin"
-version = "1.5.0"
+version = "1.6.0"
 
 [[package]]
 name = "bin-lib"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "git2",
  "regex",
@@ -120,7 +120,7 @@ checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
 name = "bs"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -134,7 +134,7 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 
 [[package]]
 name = "cb"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -214,7 +214,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cmt"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -246,7 +246,7 @@ dependencies = [
 
 [[package]]
 name = "dot-env"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "clap",
  "tempfile",
@@ -270,7 +270,7 @@ dependencies = [
 
 [[package]]
 name = "fail"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
 ]
@@ -534,7 +534,7 @@ dependencies = [
 
 [[package]]
 name = "is-dirty"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "clap",
@@ -542,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "is-on-branch"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "regex",
@@ -699,7 +699,7 @@ dependencies = [
 
 [[package]]
 name = "pass"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
 ]
@@ -752,7 +752,7 @@ dependencies = [
 
 [[package]]
 name = "pwb"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "bin-lib",
  "git2",
@@ -1269,7 +1269,7 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "x"
-version = "1.5.0"
+version = "1.6.0"
 dependencies = [
  "shell-executor",
 ]
